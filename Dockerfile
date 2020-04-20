@@ -2,10 +2,13 @@ FROM node:12 as build
 
 WORKDIR /build
 
-ADD . /build
+COPY *.json /build/
 
-RUN npm ci && \
-    npx lerna bootstrap
+RUN npm ci
+
+RUN ls -l node_modules
+
+COPY cloudformation /build/cloudformation
 
 RUN npm run build
 

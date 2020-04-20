@@ -19,10 +19,11 @@ inputs:
   kms-key-id:
     description: |
       The KMS encryption key used to encrypt uploaded artifacts.
-  output-template-file:
+  artifact-name:
     type: string
     description: |
-      The location of the packaged cloudformation template file.
+      The name of the artifact that will be created, containing the packaged
+      template.
 runs:
   using: docker
   image: docker://firstclasspostcodes/github-action:0.1.8
