@@ -4,6 +4,12 @@
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
     [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "npm run build"
+      }
+    ],
+    [
       "@google/semantic-release-replace-plugin",
       {
         "replacements": [
@@ -36,7 +42,7 @@
     [
       "@semantic-release/git",
       {
-        "assets": ["README.md", "cloudformation/*"],
+        "assets": ["README.md", "cloudformation/**/*"],
         "message": "chore: Updated files for version ${nextRelease.version} [skip ci]"
       }
     ],
