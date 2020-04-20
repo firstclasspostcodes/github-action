@@ -11,6 +11,7 @@ try {
 
   console.log(`Path Prefix is: ${pathPrefix}!`);
   console.log(`region length is: ${region.length}`);
+  console.log(`region is: ${region}`);
   // const time = (new Date()).toTimeString();
   // core.setOutput("time", time);
 
