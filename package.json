@@ -7,7 +7,8 @@
     "build": "npx lerna run build",
     "commit": "npx git-cz",
     "lint": "eslint . --ext js",
-    "format": "prettier --ignore-path .eslintignore --write \"**/*.+(js|jsx|json|yml|yaml|css|md|vue)\""
+    "format": "prettier --ignore-path .eslintignore --write \"**/*.+(js|jsx|json|yml|yaml|css|md|vue)\"",
+    "precommit": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -32,11 +33,15 @@
     "git-cz": "^4.3.1",
     "husky": "^4.2.5",
     "lerna": "^3.20.2",
+    "lint-staged": "^10.1.6",
     "prettier": "^2.0.4"
   },
   "dependencies": {
     "@actions/core": "^1.2.3",
     "@actions/github": "^2.1.1",
     "aws-sdk": "^2.658.0"
+  },
+  "lint-staged": {
+    "*.js": "eslint --cache --fix"
   }
 }
