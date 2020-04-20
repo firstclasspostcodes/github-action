@@ -11,29 +11,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v1
-
+        
       - name: Setup NodeJS
         uses: actions/setup-node@v1
         with:
           node-version: 12
-
+          
       - name: Install dependencies
         run: npm ci
-
+        
       - name: Bootstrap Lerna
         run: npx lerna bootstrap
-
+        
       - name: Lint
         run: npm run lint
-
+        
+      - name: Build library
+        run: npm run build
+        
       - name: Docker Build
+        run: |
+          docker build --cache-from=$DOCKER_IMAGE --compress=true -t $DOCKER_IMAGE .
         if: github.ref == 'refs/heads/master'
-        uses: whoan/docker-build-with-cache-action@v5
-        with:
-          image_name: ${{secrets.DOCKER_IMAGE}}
-          push_image_and_stages: false
-          build_extra_args: "--compress=true"
-
+        env:
+          DOCKER_IMAGE: ${{secrets.DOCKER_IMAGE}}
+          
       - name: Semantic Release
         if: github.ref == 'refs/heads/master'
         id: semantic
@@ -44,3 +46,4 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
           DOCKER_USERNAME: ${{secrets.DOCKER_USERNAME}}
           DOCKER_PASSWORD: ${{secrets.DOCKER_PASSWORD}}
+          
