@@ -3,13 +3,10 @@ on: [push]
 jobs:
   hello_world_job:
     runs-on: ubuntu-latest
-    name: A job to say hello
+    name: Test read parameters
     steps:
-      - name: Hello world action step
-        id: hello
-        uses: firstclasspostcodes/github-action/cloudformation/read-parameters@v0.0.3
+      - name: Test Read Parameters
+        id: read-parameters
+        uses: firstclasspostcodes/github-action/cloudformation/read-parameters@v0.0.5
         with:
-          who-to-greet: 'Mona the Octocat'
-      # Use the output from the `hello` step
-      - name: Get the output time
-        run: echo "The time was ${{ steps.hello.outputs.time }}"
+          path: '/env/to/path'

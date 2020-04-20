@@ -1,17 +1,18 @@
-name: 'Read parameters'
+name: 'CloudFormation: Read parameters'
 description: |
-  This command reads parameters with a specific path prefix from SSM Parameter Store.
-  This allows you to use these values as environment variables in subsequent steps.
+  This command reads parameters with a specific path prefix from SSM Parameter Store into outputs for following steps. This allows you to use these values as environment variables in subsequent steps. For example, if you have a parameter with the name "/Project/Upload/ArtifactBucket", this would be set as outputs.project_upload_artifact_bucket. You can use then use these as environment variables in later steps.
+  
+  To generate the variable key, we replace all slashes with underscores, 
+  strip any "special characters" ("-" for example) and 
+  convert camel-case to snake-case.
 inputs:
-  who-to-greet:
-    description: 'Who to greet'
+  path:
     required: true
-    default: 'World'
-outputs:
-  time:
-    description: 'The time we greeted you'
+    description: |
+      The path prefix for parameters
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
+  using: docker
+  image: firstclasspostcodes/github-action:latest
   args:
-    - ${{ inputs.who-to-greet }}
+    - /command/cloudformation/read-parameters/action.sh
+    - ${{inputs.path}}
