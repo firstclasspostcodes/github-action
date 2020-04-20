@@ -18,6 +18,6 @@ RUN \
   apk --purge -v del py-pip && \
   rm /var/cache/apk/*
 
-COPY --from=build /build /command
+COPY --from=build /build/cloudformation /command/cloudformation
 
 ENTRYPOINT ["/bin/sh"]
