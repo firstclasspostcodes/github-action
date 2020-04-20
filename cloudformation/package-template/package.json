@@ -1,0 +1,9 @@
+{
+  "name": "package-template",
+  "private": true,
+  "version": "0.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "ncc build index.js"
+  }
+}

@@ -1,11 +1,15 @@
 name: 'CloudFormation: Read parameters'
 description: |
-  This command reads parameters with a specific path prefix from SSM Parameter Store and outputs all matching parameters in kebab case.
+  This command reads parameters with a specific path prefix from SSM Parameter Store and outputs all matching parameters.
+
+  Outputs for subsequent steps are in Kebab-case. Therefore, given a parameter with the name: "/Some/Parameter/Prefix/DatabaseName" it will be output as "some-parameter-prefix-database-name".
+
+  Environment variables for use are in snake case. Therefore, given a parameter with the name: "/Some/Parameter/Prefix/DatabaseName" it will be output as "SOME_PARAMETER_PREFIX_DATABASE_NAME".
 inputs:
   path:
     required: true
     description: |
-      The path prefix for parameters
+      The path prefix for parameters to be read into the environment and output variables.
 runs:
   using: 'node12'
   main: 'dist/index.js'

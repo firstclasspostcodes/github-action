@@ -1,0 +1,31 @@
+name: 'CloudFormation: Package template'
+description: |
+  Packages a cloudformation template, uploading local dependencies to an 
+  artifact S3 bucket.
+inputs:
+  template-file:
+    required: true
+    description: |
+      The path to a CloudFormation template file in JSON or YAML format.
+  s3-bucket:
+    required: true
+    description: |
+      The name of the S3 bucket that will be used to store uploaded artifacts
+      produced by packaging the template.
+  s3-prefix:
+    default: ""
+    description: |
+      The S3 prefix to be applied to any uploaded artifacts.
+  kms-key-id:
+    description: |
+      The KMS encryption key used to encrypt uploaded artifacts.
+  output-template-file:
+    type: string
+    description: |
+      The location of the packaged cloudformation template file.
+runs:
+  using: docker
+  image: docker://firstclasspostcodes/github-action:0.1.1
+  args:
+    - /command/cloudformation/package-template/action.sh
+    - ${{inputs.echo}}

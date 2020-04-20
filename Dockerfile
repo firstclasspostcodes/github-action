@@ -1,3 +1,14 @@
+FROM node:12 as build
+
+WORKDIR /build
+
+ADD . /build
+
+RUN npm ci && \
+    npx lerna bootstrap
+
+RUN npm run build
+
 FROM node:12-alpine
 
 RUN \
@@ -7,6 +18,6 @@ RUN \
   apk --purge -v del py-pip && \
   rm /var/cache/apk/*
 
-ADD . /command
+COPY --from=build /build /command
 
 ENTRYPOINT ["/bin/sh"]

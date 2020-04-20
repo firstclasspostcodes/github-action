@@ -1,2 +1,4 @@
+/.dependabot
 /.github
 *.yml
+node_modules

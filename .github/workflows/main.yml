@@ -1,6 +1,9 @@
+name: Test Action
+
 on:
-  tags:
-    - v*
+  create:
+    tags:
+      - 'v*'
 
 jobs:
   test_action:
@@ -11,11 +14,22 @@ jobs:
         id: tagged_version
         run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)
 
-      - name: 'Test: cloudformation/read-parameters'
-        id: read-parameters
-        uses: firstclasspostcodes/github-action/cloudformation/read-parameters@$VERSION
+      - name: 'Test: cloudformation/package-template'
+        uses: firstclasspostcodes/github-action/cloudformation/package-template@$VERSION
         env:
-          AWS_REGION: eu-west-1
           VERSION: ${{ steps.tagged_version.outputs.VERSION }}
         with:
-          path: '/env/to/path'
+          template-file: 'test-template-file-value'
+          s3-bucket: 'test-s3-bucket-value'
+          s3-prefix: 'test-s3-prefix-value'
+          kms-key-id: 'test-kms-key-id-value'
+          output-template-file: 'test-output-template-file-value'
+
+      # - name: 'Test: cloudformation/read-parameters'
+      #   id: read-parameters
+      #   uses: firstclasspostcodes/github-action/cloudformation/read-parameters@$VERSION
+      #   env:
+      #     AWS_REGION: eu-west-1
+      #     VERSION: ${{ steps.tagged_version.outputs.VERSION }}
+      #   with:
+      #     path: '/env/to/path'
