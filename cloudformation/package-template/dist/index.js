@@ -4265,7 +4265,6 @@ function onceStrict (fn) {
 /***/ (function(__unusedmodule, __unusedexports, __webpack_require__) {
 
 const minimist = __webpack_require__(816);
-const io = __webpack_require__(213);
 const core = __webpack_require__(852);
 const artifact = __webpack_require__(699);
 const exec = __webpack_require__(353);
@@ -4294,16 +4293,16 @@ const main = async (argv) => {
       '--kms-key-id',
       kmsKeyId,
       '--output-template-file',
-      'template.yml',
+      '/tmp/template.yml',
     ]);
 
     await artifactClient.uploadArtifact(
       artifactName,
       ['template.yml'],
-      process.cwd()
+      '/tmp/'
     );
 
-    await io.rmRF('template.yml');
+    return true;
   } catch (error) {
     core.setFailed(error.message);
   }
