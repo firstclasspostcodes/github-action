@@ -15,6 +15,8 @@ const main = async (argv) => {
       ['artifact-name']: artifactName,
     } = argv;
 
+    const sanitizedS3Preix = s3Prefix.replace(/(^\/|\/$)/g, '');
+
     await exec.exec('aws', [
       'cloudformation',
       'package',
@@ -23,7 +25,7 @@ const main = async (argv) => {
       '--s3-bucket',
       s3Bucket,
       '--s3-prefix',
-      s3Prefix,
+      sanitizedS3Preix,
       '--kms-key-id',
       kmsKeyId,
       '--output-template-file',
