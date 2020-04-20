@@ -8,7 +8,7 @@ inputs:
       Test echo parameter
 runs:
   using: docker
-  image: docker://firstclasspostcodes/github-action:v0.1.1
+  image: docker://firstclasspostcodes/github-action:0.1.1
   args:
     - /command/cloudformation/echo/action.sh
     - ${{inputs.echo}}
