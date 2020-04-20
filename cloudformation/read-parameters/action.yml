@@ -12,7 +12,7 @@ inputs:
       The path prefix for parameters
 runs:
   using: docker
-  image: firstclasspostcodes/github-action:latest
+  image: docker://firstclasspostcodes/github-action:latest
   args:
     - /command/cloudformation/read-parameters/action.sh
     - ${{inputs.path}}
