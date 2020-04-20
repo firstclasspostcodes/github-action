@@ -7,7 +7,7 @@ jobs:
     steps:
       - name: Hello world action step
         id: hello
-        uses: firstclasspostcodes/github-action/cloudformation/read-parameters@v1
+        uses: firstclasspostcodes/github-action/cloudformation/read-parameters@v0.0.3
         with:
           who-to-greet: 'Mona the Octocat'
       # Use the output from the `hello` step
