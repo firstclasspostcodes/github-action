@@ -1,0 +1,15 @@
+name: 'CloudFormation: Read outputs'
+description: |
+  Reads the outputs from a specific cloudformation stack.
+
+  Outputs for subsequent steps are in Kebab-case. Therefore, given a parameter with the name: "/Some/Parameter/Prefix/DatabaseName" it will be output as "some-parameter-prefix-database-name".
+
+  Environment variables for use are in snake case. Therefore, given a parameter with the name: "/Some/Parameter/Prefix/DatabaseName" it will be output as "SOME_PARAMETER_PREFIX_DATABASE_NAME".
+inputs:
+  stack-name:
+    required: true
+    description: |
+      The name of the stack to read outputs for.
+runs:
+  using: 'node12'
+  main: 'dist/index.js'
