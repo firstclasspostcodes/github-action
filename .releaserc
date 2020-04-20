@@ -21,12 +21,6 @@
             "to": ":${nextRelease.version}",
             "results": [
               {
-                "file": "README.md",
-                "hasChanged": true,
-                "numMatches": 1,
-                "numReplacements": 1
-              },
-              {
                 "file": "cloudformation/echo/action.yml",
                 "hasChanged": true,
                 "numMatches": 1,
