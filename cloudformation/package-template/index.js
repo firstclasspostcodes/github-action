@@ -17,6 +17,8 @@ const main = async (argv) => {
 
     const sanitizedS3Preix = s3Prefix.replace(/(^\/|\/$)/g, '');
 
+    const outputTemplateFilename = `${process.env.GITHUB_SHA}.yml`;
+
     await exec.exec('aws', [
       'cloudformation',
       'package',
@@ -29,14 +31,10 @@ const main = async (argv) => {
       '--kms-key-id',
       kmsKeyId,
       '--output-template-file',
-      '/tmp/template.yml',
+      outputTemplateFilename,
     ]);
 
-    await artifactClient.uploadArtifact(
-      artifactName,
-      ['template.yml'],
-      '/tmp/'
-    );
+    await artifactClient.uploadArtifact(artifactName, [outputTemplateFilename]);
 
     return true;
   } catch (error) {
