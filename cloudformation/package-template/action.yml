@@ -28,7 +28,6 @@ runs:
   using: docker
   image: docker://firstclasspostcodes/github-action:0.2.4
   args:
-    - node
     - /command/cloudformation/package-template/dist/index.js
     - --template-file=${{ inputs.template-file }}
     - --s3-bucket=${{ inputs.s3-bucket }}

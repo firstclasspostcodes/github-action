@@ -23,4 +23,4 @@ RUN \
 
 COPY --from=build /build/cloudformation /command/cloudformation
 
-ENTRYPOINT ["/bin/sh"]
+ENTRYPOINT ["node"]
