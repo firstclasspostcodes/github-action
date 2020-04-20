@@ -4273,38 +4273,43 @@ const exec = __webpack_require__(353);
 const artifactClient = artifact.create();
 
 const main = async (argv) => {
-  const {
-    ['template-file']: templateFile,
-    ['s3-bucket']: s3Bucket,
-    ['s3-prefix']: s3Prefix,
-    ['kms-key-id']: kmsKeyId,
-    ['artifact-name']: artifactName,
-  } = argv;
+  try {
+    const {
+      ['template-file']: templateFile,
+      ['s3-bucket']: s3Bucket,
+      ['s3-prefix']: s3Prefix,
+      ['kms-key-id']: kmsKeyId,
+      ['artifact-name']: artifactName,
+    } = argv;
 
-  await exec.exec('aws', [
-    'cloudformation',
-    'package',
-    `--template-file ${templateFile}`,
-    `--s3-bucket ${s3Bucket}`,
-    `--s3-prefix ${s3Prefix}`,
-    `--kms-key-id ${kmsKeyId}`,
-    `--output-template-file template.yml`,
-  ]);
+    await exec.exec('aws', [
+      'cloudformation',
+      'package',
+      '--template-file',
+      templateFile,
+      '--s3-bucket',
+      s3Bucket,
+      '--s3-prefix',
+      s3Prefix,
+      '--kms-key-id',
+      kmsKeyId,
+      '--output-template-file',
+      'template.yml',
+    ]);
 
-  await artifactClient.uploadArtifact(
-    artifactName,
-    ['template.yml'],
-    process.cwd()
-  );
+    await artifactClient.uploadArtifact(
+      artifactName,
+      ['template.yml'],
+      process.cwd()
+    );
 
-  await io.rmRF('template.yml');
+    await io.rmRF('template.yml');
+  } catch (error) {
+    core.setFailed(error.message);
+  }
 };
 
-try {
-  main(minimist(process.argv.slice(2)));
-} catch (error) {
-  core.setFailed(error.message);
-}
+main(minimist(process.argv.slice(2)));
 
 
 /***/ }),
