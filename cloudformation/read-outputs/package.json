@@ -1,5 +1,5 @@
 {
-  "name": "read-parameters",
+  "name": "read-outputs",
   "private": true,
   "version": "0.0.0",
   "main": "index.js",
