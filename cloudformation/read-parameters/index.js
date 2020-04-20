@@ -1,8 +1,11 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
+const SSM = require('aws-sdk/clients/ssm');
 
 try {
   const pathPrefix = core.getInput('path');
+
+  console.log(`region is: ${process.env.AWS_REGION}`);
 
   console.log(`Path Prefix is: ${pathPrefix}!`);
   // const time = (new Date()).toTimeString();

@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@actions/core": "^1.2.3",
-    "@actions/github": "^2.1.1"
+    "@actions/github": "^2.1.1",
+    "aws-sdk": "^2.658.0"
   }
 }

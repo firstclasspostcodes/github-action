@@ -1,10 +1,6 @@
 name: 'CloudFormation: Read parameters'
 description: |
-  This command reads parameters with a specific path prefix from SSM Parameter Store into outputs for following steps. This allows you to use these values as environment variables in subsequent steps. For example, if you have a parameter with the name "/Project/Upload/ArtifactBucket", this would be set as outputs.project_upload_artifact_bucket. You can use then use these as environment variables in later steps.
-  
-  To generate the variable key, we replace all slashes with underscores, 
-  strip any "special characters" ("-" for example) and 
-  convert camel-case to snake-case.
+  This command reads parameters with a specific path prefix from SSM Parameter Store and outputs all matching parameters in kebab case.
 inputs:
   path:
     required: true
