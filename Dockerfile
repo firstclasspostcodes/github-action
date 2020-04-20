@@ -6,8 +6,6 @@ COPY *.json /build/
 
 RUN npm ci
 
-RUN ls -l node_modules
-
 COPY cloudformation /build/cloudformation
 
 RUN npm run build

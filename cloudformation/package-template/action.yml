@@ -33,4 +33,4 @@ runs:
     - --s3-bucket=${{ inputs.s3-bucket }}
     - --s3-prefix=${{ inputs.s3-prefix }}
     - --kms-key-id=${{ inputs.kms-key-id }}
-    - --output-template-file=${{ inputs.output-template-file }}
+    - --artifact-name=${{ inputs.artifact-name }}

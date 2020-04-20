@@ -28,16 +28,18 @@ const main = async (argv) => {
       '--kms-key-id',
       kmsKeyId,
       '--output-template-file',
-      'template.yml',
+      '/tmp/template.yml',
     ]);
 
     await artifactClient.uploadArtifact(
       artifactName,
       ['template.yml'],
-      process.cwd()
+      '/tmp/'
     );
 
     await io.rmRF('template.yml');
+
+    return true;
   } catch (error) {
     core.setFailed(error.message);
   }
