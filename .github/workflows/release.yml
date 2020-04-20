@@ -30,7 +30,7 @@ jobs:
         if: github.ref == 'refs/heads/master'
         uses: whoan/docker-build-with-cache-action@v5
         with:
-          image_name: ${{secrets.DOCKER_IMAGE}}}}
+          image_name: ${{secrets.DOCKER_IMAGE}}
 
       - name: Semantic Release
         if: github.ref == 'refs/heads/master'
