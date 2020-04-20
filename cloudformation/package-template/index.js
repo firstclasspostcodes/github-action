@@ -1,5 +1,4 @@
 const minimist = require('minimist');
-const io = require('@actions/io');
 const core = require('@actions/core');
 const artifact = require('@actions/artifact');
 const exec = require('@actions/exec');
@@ -36,8 +35,6 @@ const main = async (argv) => {
       ['template.yml'],
       '/tmp/'
     );
-
-    await io.rmRF('template.yml');
 
     return true;
   } catch (error) {
