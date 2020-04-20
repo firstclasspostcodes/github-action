@@ -4281,7 +4281,9 @@ const main = async (argv) => {
     ['artifact-name']: artifactName,
   } = argv;
 
-  await exec.exec('aws cloudformation package', [
+  await exec.exec('aws', [
+    'cloudformation',
+    'package',
     `--template-file ${templateFile}`,
     `--s3-bucket ${s3Bucket}`,
     `--s3-prefix ${s3Prefix}`,
