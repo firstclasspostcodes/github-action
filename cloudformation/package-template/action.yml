@@ -25,7 +25,7 @@ inputs:
       The location of the packaged cloudformation template file.
 runs:
   using: docker
-  image: docker://firstclasspostcodes/github-action:0.1.1
+  image: docker://firstclasspostcodes/github-action:0.1.4
   args:
     - /command/cloudformation/package-template/action.sh
     - ${{inputs.echo}}
