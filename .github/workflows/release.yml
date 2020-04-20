@@ -31,6 +31,7 @@ jobs:
         uses: whoan/docker-build-with-cache-action@v5
         with:
           image_name: ${{secrets.DOCKER_IMAGE}}
+          push_image_and_stages: false
 
       - name: Semantic Release
         if: github.ref == 'refs/heads/master'
