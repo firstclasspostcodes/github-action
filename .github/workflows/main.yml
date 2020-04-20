@@ -1,14 +1,21 @@
-on: [tags]
+on:
+  tags:
+    - v*
 
 jobs:
-  hello_world_job:
+  test_action:
     runs-on: ubuntu-latest
-    name: Test read parameters
+    name: Test Action
     steps:
-      - name: Test Read Parameters
+      - name: Get tagged version
+        id: tagged_version
+        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)
+
+      - name: 'Test: cloudformation/read-parameters'
         id: read-parameters
-        uses: firstclasspostcodes/github-action/cloudformation/read-parameters@v0.0.13
+        uses: firstclasspostcodes/github-action/cloudformation/read-parameters@$VERSION
         env:
           AWS_REGION: eu-west-1
+          VERSION: ${{ steps.tagged_version.outputs.VERSION }}
         with:
           path: '/env/to/path'
