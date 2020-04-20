@@ -4300,7 +4300,11 @@ const main = async (argv) => {
       outputTemplateFilename,
     ]);
 
-    await artifactClient.uploadArtifact(artifactName, [outputTemplateFilename]);
+    await artifactClient.uploadArtifact(
+      artifactName,
+      [outputTemplateFilename],
+      process.cwd()
+    );
 
     return true;
   } catch (error) {
