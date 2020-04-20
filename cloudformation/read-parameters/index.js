@@ -8,8 +8,9 @@ try {
   const region = process.env.AWS_REGION;
 
 
+
   console.log(`Path Prefix is: ${pathPrefix}!`);
-  console.log(`region is: ${region}`);
+  console.log(`region length is: ${region.length}`);
   // const time = (new Date()).toTimeString();
   // core.setOutput("time", time);
 
