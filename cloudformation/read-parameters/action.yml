@@ -6,12 +6,6 @@ inputs:
     required: true
     description: |
       The path prefix for parameters
-# runs:
-#   using: docker
-#   image: docker://firstclasspostcodes/github-action:latest
-#   args:
-#     - /command/cloudformation/read-parameters/action.sh
-#     - ${{inputs.path}}
 runs:
   using: 'node12'
   main: 'dist/index.js'

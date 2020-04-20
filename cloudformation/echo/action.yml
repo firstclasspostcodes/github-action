@@ -1,0 +1,14 @@
+name: 'CloudFormation: Echo Test'
+description: |
+  Echo the input!
+inputs:
+  echo:
+    required: true
+    description: |
+      Test echo parameter
+runs:
+  using: docker
+  image: docker://firstclasspostcodes/github-action:v0.0.0
+  args:
+    - /command/cloudformation/echo/action.sh
+    - ${{inputs.echo}}
