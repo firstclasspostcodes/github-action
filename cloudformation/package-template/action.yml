@@ -26,10 +26,8 @@ inputs:
 runs:
   using: docker
   image: docker://firstclasspostcodes/github-action:0.1.5
-  entrypoint:
-    - "/bin/sh"
-    - "/command/cloudformation/package-template/action.sh"
   args:
+    - /command/cloudformation/package-template/action.sh
     - --template-file=${{ inputs.template-file }}
     - --s3-bucket=${{ inputs.s3-bucket }}
     - --s3-prefix=${{ inputs.s3-prefix }}
