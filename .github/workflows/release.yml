@@ -31,7 +31,7 @@ jobs:
         
       - name: Docker Build
         run: |
-          docker build --squash --cache-from=$DOCKER_IMAGE --compress=true -t $DOCKER_IMAGE .
+          docker build --cache-from=$DOCKER_IMAGE --compress=true -t $DOCKER_IMAGE .
         if: github.ref == 'refs/heads/master'
         env:
           DOCKER_IMAGE: ${{secrets.DOCKER_IMAGE}}
