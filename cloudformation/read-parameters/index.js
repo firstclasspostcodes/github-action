@@ -5,9 +5,11 @@ const SSM = require('aws-sdk/clients/ssm');
 try {
   const pathPrefix = core.getInput('path');
 
-  console.log(`region is: ${process.env.AWS_REGION}`);
+  const region = process.env.AWS_REGION;
+
 
   console.log(`Path Prefix is: ${pathPrefix}!`);
+  console.log(`region is: ${region}`);
   // const time = (new Date()).toTimeString();
   // core.setOutput("time", time);
 
