@@ -26,7 +26,7 @@ inputs:
       template.
 runs:
   using: docker
-  image: docker://firstclasspostcodes/github-action:0.2.9
+  image: docker://firstclasspostcodes/github-action:0.3.0
   args:
     - /command/cloudformation/package-template/dist/index.js
     - --template-file=${{ inputs.template-file }}
