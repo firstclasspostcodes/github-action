@@ -1,0 +1,34 @@
+name: 'CloudFormation: Deploy'
+description: |
+  This command can either deploy a CloudFormation template from the local filesystem, or a 
+  template inside an artifact.
+
+  Before completing, this action will wait for the deploy to complete.
+inputs:
+  parameters:
+    type: string
+    description: |
+      A string containing parameter names and values as valid JSON.
+    default: '{}'
+  capabilities:
+    type: string
+    description: |
+      A comma-delimited list of IAM capabilities for this deployment.
+    default: CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND
+  stack-name:
+    type: string
+    required: true
+    description: |
+      The CloudFormation stack name as identified inside AWS.
+  template-file:
+    type: string
+    description: |
+      The path to a CloudFormation template file in JSON or YAML format.
+  artifact-name:
+    type: string
+    description: |
+      The name of the artifact that will be created, containing the packaged
+      template.
+runs:
+  using: 'node12'
+  main: 'dist/index.js'
