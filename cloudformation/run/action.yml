@@ -43,7 +43,7 @@ inputs:
       template.
 runs:
   using: docker
-  image: docker://firstclasspostcodes/github-action:0.3.0
+  image: docker://firstclasspostcodes/github-action:1.0.0
   args:
     - /command/cloudformation/run/dist/run.js
     - --template-file=${{ inputs.template-file }}
