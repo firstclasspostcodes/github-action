@@ -15,24 +15,24 @@ const toEnvKey = (key) => toKey(key, '_').toUpperCase();
 const toOutputKey = (key) => toKey(key, '-').toLowerCase();
 
 const readOutputs = async ({ stackName }, step) => {
-  const { Stacks: [stack] = [] } = await cloudformation
-    .describeStacks({ StackName: stackName })
-    .promise();
+  try {
+    const { Stacks: [stack] = [] } = await cloudformation
+      .describeStacks({ StackName: stackName })
+      .promise();
 
-  if (!stack) {
+    const { Outputs: outputs } = stack;
+
+    outputs.forEach(({ OutputKey: key, OutputValue: value }) => {
+      step.debug(`Output: "${key}" = "${value}"`);
+      step.setOutput(toOutputKey(key), value);
+      step.exportVariable(toEnvKey(key), value);
+      return true;
+    });
+
+    return true;
+  } catch (err) {
     throw new Error(`The stack "${stackName} does not exist.`);
   }
-
-  const { Outputs: outputs } = stack;
-
-  outputs.forEach(({ OutputKey: key, OutputValue: value }) => {
-    step.debug(`Output: "${key}" = "${value}"`);
-    step.setOutput(toOutputKey(key), value);
-    step.exportVariable(toEnvKey(key), value);
-    return true;
-  });
-
-  return true;
 };
 
 module.exports = {

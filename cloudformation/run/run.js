@@ -27,24 +27,29 @@ const stepHandler = {
 };
 
 const main = async () => {
-  await packageTemplate({
-    templateFile,
-    s3Bucket,
-    s3Prefix,
-    kmsKeyId,
-    artifactName,
-  });
+  try {
+    await packageTemplate({
+      templateFile,
+      s3Bucket,
+      s3Prefix,
+      kmsKeyId,
+      artifactName,
+    });
 
-  await deployStack({
-    changeSetName,
-    parameters,
-    stackName,
-    templateFilePath: templateFile,
-    artifactName,
-    capabilities: capabilities.split(','),
-  });
+    await deployStack({
+      changeSetName,
+      parameters,
+      stackName,
+      templateFilePath: templateFile,
+      artifactName,
+      capabilities: capabilities.split(','),
+    });
 
-  await readOutputs({ stackName }, stepHandler);
+    await readOutputs({ stackName }, stepHandler);
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
 };
 
 main();

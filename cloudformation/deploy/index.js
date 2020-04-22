@@ -39,12 +39,16 @@ const getTemplateBody = async ({ filepath, artifactName }) => {
 const getChangeSetType = async (stackName) => {
   let changeSetType = 'CREATE';
 
-  const { Stacks: [stack] = [] } = await cloudformation
-    .describeStacks({ StackName: stackName })
-    .promise();
+  try {
+    const { Stacks: [stack] = [] } = await cloudformation
+      .describeStacks({ StackName: stackName })
+      .promise();
 
-  if (stack) {
-    changeSetType = 'UPDATE';
+    if (stack) {
+      changeSetType = 'UPDATE';
+    }
+  } catch (err) {
+    console.log(`Stack "${stackName} does not exist. Creating.`);
   }
 
   return changeSetType;
