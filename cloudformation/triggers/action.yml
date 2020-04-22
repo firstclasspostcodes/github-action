@@ -24,6 +24,7 @@ runs:
   image: docker://firstclasspostcodes/github-action:1.2.1
   args:
     - /command/cloudformation/triggers/dist/index.js
+    - --name=${{ inputs.name }}
     - --token=${{ inputs.token }}
     - --event-pattern=${{ inputs.event-pattern }}
     - --event-type=${{ inputs.event-type }}
