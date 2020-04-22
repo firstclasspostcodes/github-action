@@ -1,3 +1,4 @@
+const core = require('@actions/core');
 const minimist = require('minimist');
 
 const { packageTemplate } = require('../package-template');
@@ -17,36 +18,35 @@ const {
   ['artifact-name']: artifactName,
 } = argv;
 
-const changeSetName = process.env.GITHUB_SHA;
-
-const stepHandler = {
-  debug: (str) => console.log(`::debug:: ${str}`),
-  setOutput: (key, value) =>
-    console.log(`::set-output ${key}=string::${value}`),
-  exportVariable: (key, value) => console.log(`export ${key}=${value}`),
-};
+const changeSetName = `c-${process.env.GITHUB_SHA}`;
 
 const main = async () => {
   try {
-    await packageTemplate({
-      templateFile,
-      s3Bucket,
-      s3Prefix,
-      kmsKeyId,
-      artifactName,
-    });
+    await packageTemplate(
+      {
+        templateFile,
+        s3Bucket,
+        s3Prefix,
+        kmsKeyId,
+        artifactName,
+      },
+      core
+    );
 
-    await deployStack({
-      changeSetName,
-      parameters,
-      stackName,
-      artifactName,
-      capabilities: capabilities.split(','),
-    });
+    await deployStack(
+      {
+        changeSetName,
+        parameters,
+        stackName,
+        artifactName,
+        capabilities: capabilities.split(','),
+      },
+      core
+    );
 
-    await readOutputs({ stackName }, stepHandler);
-  } catch (err) {
-    console.error(err);
+    await readOutputs({ stackName }, core);
+  } catch (error) {
+    core.setFailed(error.message);
     process.exit(1);
   }
 };

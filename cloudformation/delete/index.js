@@ -14,6 +14,8 @@ const doesStackExist = async (stackName) => {
 };
 
 const deleteStack = async ({ stackName }, step) => {
+  step.startGroup(`Deleting stack: ${stackName}`);
+
   const isDeployed = await doesStackExist(stackName);
 
   if (!isDeployed) {
@@ -32,6 +34,8 @@ const deleteStack = async ({ stackName }, step) => {
     .promise();
 
   step.debug(`Stack "${stackName}" has been deleted.`);
+
+  step.endGroup();
 };
 
 module.exports = {

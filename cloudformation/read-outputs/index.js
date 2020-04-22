@@ -16,6 +16,8 @@ const toOutputKey = (key) => toKey(key, '-').toLowerCase();
 
 const readOutputs = async ({ stackName }, step) => {
   try {
+    step.startGroup(`Reading outputs for stack: ${stackName}`);
+
     const { Stacks: [stack] = [] } = await cloudformation
       .describeStacks({ StackName: stackName })
       .promise();
@@ -28,6 +30,8 @@ const readOutputs = async ({ stackName }, step) => {
       step.exportVariable(toEnvKey(key), value);
       return true;
     });
+
+    step.endGroup();
 
     return true;
   } catch (err) {

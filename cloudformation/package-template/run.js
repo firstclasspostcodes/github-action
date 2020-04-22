@@ -1,3 +1,4 @@
+const core = require('@actions/core');
 const minimist = require('minimist');
 
 const { packageTemplate } = require('.');
@@ -12,10 +13,21 @@ const {
   ['artifact-name']: artifactName,
 } = argv;
 
-packageTemplate({
-  templateFile,
-  s3Bucket,
-  s3Prefix,
-  kmsKeyId,
-  artifactName,
-});
+const main = async () => {
+  try {
+    await packageTemplate(
+      {
+        templateFile,
+        s3Bucket,
+        s3Prefix,
+        kmsKeyId,
+        artifactName,
+      },
+      core
+    );
+  } catch (error) {
+    core.setFailed(error.message);
+  }
+};
+
+main();

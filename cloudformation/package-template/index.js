@@ -1,46 +1,42 @@
-const core = require('@actions/core');
 const artifact = require('@actions/artifact');
 const exec = require('@actions/exec');
 
 const artifactClient = artifact.create();
 
-const packageTemplate = async ({
-  templateFile,
-  s3Bucket,
-  s3Prefix,
-  kmsKeyId,
-  artifactName,
-}) => {
-  try {
-    const sanitizedS3Preix = s3Prefix.replace(/(^\/|\/$)/g, '');
+const packageTemplate = async (
+  { templateFile, s3Bucket, s3Prefix, kmsKeyId, artifactName },
+  step
+) => {
+  step.startGroup(`Packaging template: ${templateFile}`);
 
-    const outputTemplateFilename = `${process.env.GITHUB_SHA}.yml`;
+  const sanitizedS3Preix = s3Prefix.replace(/(^\/|\/$)/g, '');
 
-    await exec.exec('aws', [
-      'cloudformation',
-      'package',
-      '--template-file',
-      templateFile,
-      '--s3-bucket',
-      s3Bucket,
-      '--s3-prefix',
-      sanitizedS3Preix,
-      '--kms-key-id',
-      kmsKeyId,
-      '--output-template-file',
-      outputTemplateFilename,
-    ]);
+  const outputTemplateFilename = `___template.yml`;
 
-    await artifactClient.uploadArtifact(
-      artifactName,
-      [outputTemplateFilename],
-      process.cwd()
-    );
+  await exec.exec('aws', [
+    'cloudformation',
+    'package',
+    '--template-file',
+    templateFile,
+    '--s3-bucket',
+    s3Bucket,
+    '--s3-prefix',
+    sanitizedS3Preix,
+    '--kms-key-id',
+    kmsKeyId,
+    '--output-template-file',
+    outputTemplateFilename,
+  ]);
 
-    return true;
-  } catch (error) {
-    core.setFailed(error.message);
-  }
+  await artifactClient.uploadArtifact(
+    artifactName,
+    [outputTemplateFilename],
+    process.cwd()
+  );
+
+  step.endGroup();
+
+  return true;
 };
 
 module.exports = {
