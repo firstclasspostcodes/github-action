@@ -12,4 +12,4 @@ inputs:
       The CloudFormation stack name as identified inside AWS.
 runs:
   using: 'node12'
-  main: 'dist/run.js'
+  main: 'dist/index.js'

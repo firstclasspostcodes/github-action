@@ -12,4 +12,4 @@ inputs:
       The name of the stack to read outputs for.
 runs:
   using: 'node12'
-  main: 'dist/run.js'
+  main: 'dist/index.js'

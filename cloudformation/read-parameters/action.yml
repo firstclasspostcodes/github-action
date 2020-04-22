@@ -12,4 +12,4 @@ inputs:
       The path prefix for parameters to be read into the environment and output variables.
 runs:
   using: 'node12'
-  main: 'dist/run.js'
+  main: 'dist/index.js'
