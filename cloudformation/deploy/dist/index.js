@@ -34,7 +34,7 @@ module.exports =
 /******/ 	// the startup function
 /******/ 	function startup() {
 /******/ 		// Load entry module and return exports
-/******/ 		return __webpack_require__(545);
+/******/ 		return __webpack_require__(522);
 /******/ 	};
 /******/
 /******/ 	// run startup
@@ -14418,7 +14418,7 @@ module.exports = AWS.CognitoIdentity;
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
 var util = __webpack_require__(306);
-var XmlNode = __webpack_require__(522).XmlNode;
+var XmlNode = __webpack_require__(656).XmlNode;
 var XmlText = __webpack_require__(126).XmlText;
 
 function XmlBuilder() { }
@@ -14925,53 +14925,32 @@ exports.PersonalAccessTokenCredentialHandler = PersonalAccessTokenCredentialHand
 /***/ }),
 
 /***/ 522:
-/***/ (function(module, __unusedexports, __webpack_require__) {
+/***/ (function(__unusedmodule, __unusedexports, __webpack_require__) {
 
-var escapeAttribute = __webpack_require__(107).escapeAttribute;
+const core = __webpack_require__(852);
 
-/**
- * Represents an XML node.
- * @api private
- */
-function XmlNode(name, children) {
-    if (children === void 0) { children = []; }
-    this.name = name;
-    this.children = children;
-    this.attributes = {};
+const { deployStack } = __webpack_require__(545);
+
+const { AWS_REGION } = process.env;
+
+try {
+  if (!AWS_REGION) {
+    throw new Error('"AWS_REGION" environment variable is not defined.');
+  }
+
+  const deployParams = {
+    sha: process.env.GITHUB_SHA,
+    parameters: core.getInput('parameters'),
+    stackName: core.getInput('stack-name'),
+    capabilities: core.getInput('capabilities').split(','),
+    templateFilePath: core.getInput('template-file'),
+    artifactName: core.getInput('artifact-name'),
+  };
+
+  deployStack(deployParams, core);
+} catch (error) {
+  core.setFailed(error.message);
 }
-XmlNode.prototype.addAttribute = function (name, value) {
-    this.attributes[name] = value;
-    return this;
-};
-XmlNode.prototype.addChildNode = function (child) {
-    this.children.push(child);
-    return this;
-};
-XmlNode.prototype.removeAttribute = function (name) {
-    delete this.attributes[name];
-    return this;
-};
-XmlNode.prototype.toString = function () {
-    var hasChildren = Boolean(this.children.length);
-    var xmlText = '<' + this.name;
-    // add attributes
-    var attributes = this.attributes;
-    for (var i = 0, attributeNames = Object.keys(attributes); i < attributeNames.length; i++) {
-        var attributeName = attributeNames[i];
-        var attribute = attributes[attributeName];
-        if (typeof attribute !== 'undefined' && attribute !== null) {
-            xmlText += ' ' + attributeName + '=\"' + escapeAttribute('' + attribute) + '\"';
-        }
-    }
-    return xmlText += !hasChildren ? '/>' : '>' + this.children.map(function (c) { return c.toString(); }).join('') + '</' + this.name + '>';
-};
-
-/**
- * @api private
- */
-module.exports = {
-    XmlNode: XmlNode
-};
 
 
 /***/ }),
@@ -15189,11 +15168,10 @@ AWS.EC2MetadataCredentials = AWS.util.inherit(AWS.Credentials, {
 /***/ }),
 
 /***/ 545:
-/***/ (function(__unusedmodule, __unusedexports, __webpack_require__) {
+/***/ (function(module, __unusedexports, __webpack_require__) {
 
 const path = __webpack_require__(622);
 const fs = __webpack_require__(747);
-const core = __webpack_require__(852);
 
 const artifact = __webpack_require__(699);
 const CloudFormation = __webpack_require__(626);
@@ -15283,20 +15261,20 @@ const deleteChangeSet = async ({ stackName, changeSetName }) => {
       await cloudformation.deleteChangeSet(changeSetParams).promise();
     }
   } catch (e) {
-    core.debug(`Changeset "${stackName}/${changeSetName}" does not exist.`);
+    console.log(`Changeset "${stackName}/${changeSetName}" does not exist.`);
   }
 
   return true;
 };
 
-const main = async () => {
-  const sha = process.env.GITHUB_SHA;
-  const parameters = core.getInput('parameters');
-  const stackName = core.getInput('stack-name');
-  const capabilities = core.getInput('capabilities').split(',');
-  const templateFilePath = core.getInput('template-file');
-  const artifactName = core.getInput('artifact-name');
-
+const deployStack = async ({
+  sha,
+  parameters,
+  stackName,
+  capabilities,
+  templateFilePath,
+  artifactName,
+}) => {
   await deleteChangeSet({ stackName, changeSetName: sha });
 
   const changeSetType = await getChangeSetType(stackName);
@@ -15334,14 +15312,9 @@ const main = async () => {
   await cloudformation.waitFor(completionState, { StackName: stackName });
 };
 
-try {
-  if (!AWS_REGION) {
-    throw new Error('"AWS_REGION" environment variable is not defined.');
-  }
-  main();
-} catch (error) {
-  core.setFailed(error.message);
-}
+module.exports = {
+  deployStack,
+};
 
 
 /***/ }),
@@ -18493,6 +18466,58 @@ module.exports = {
     cachedSecret = {};
     cacheQueue = [];
   }
+};
+
+
+/***/ }),
+
+/***/ 656:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+var escapeAttribute = __webpack_require__(107).escapeAttribute;
+
+/**
+ * Represents an XML node.
+ * @api private
+ */
+function XmlNode(name, children) {
+    if (children === void 0) { children = []; }
+    this.name = name;
+    this.children = children;
+    this.attributes = {};
+}
+XmlNode.prototype.addAttribute = function (name, value) {
+    this.attributes[name] = value;
+    return this;
+};
+XmlNode.prototype.addChildNode = function (child) {
+    this.children.push(child);
+    return this;
+};
+XmlNode.prototype.removeAttribute = function (name) {
+    delete this.attributes[name];
+    return this;
+};
+XmlNode.prototype.toString = function () {
+    var hasChildren = Boolean(this.children.length);
+    var xmlText = '<' + this.name;
+    // add attributes
+    var attributes = this.attributes;
+    for (var i = 0, attributeNames = Object.keys(attributes); i < attributeNames.length; i++) {
+        var attributeName = attributeNames[i];
+        var attribute = attributes[attributeName];
+        if (typeof attribute !== 'undefined' && attribute !== null) {
+            xmlText += ' ' + attributeName + '=\"' + escapeAttribute('' + attribute) + '\"';
+        }
+    }
+    return xmlText += !hasChildren ? '/>' : '>' + this.children.map(function (c) { return c.toString(); }).join('') + '</' + this.name + '>';
+};
+
+/**
+ * @api private
+ */
+module.exports = {
+    XmlNode: XmlNode
 };
 
 
