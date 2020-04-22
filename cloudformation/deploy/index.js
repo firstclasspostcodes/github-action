@@ -1,6 +1,5 @@
 const path = require('path');
 const fs = require('fs');
-const core = require('@actions/core');
 
 const artifact = require('@actions/artifact');
 const CloudFormation = require('aws-sdk/clients/cloudformation');
@@ -90,20 +89,20 @@ const deleteChangeSet = async ({ stackName, changeSetName }) => {
       await cloudformation.deleteChangeSet(changeSetParams).promise();
     }
   } catch (e) {
-    core.debug(`Changeset "${stackName}/${changeSetName}" does not exist.`);
+    console.log(`Changeset "${stackName}/${changeSetName}" does not exist.`);
   }
 
   return true;
 };
 
-const main = async () => {
-  const sha = process.env.GITHUB_SHA;
-  const parameters = core.getInput('parameters');
-  const stackName = core.getInput('stack-name');
-  const capabilities = core.getInput('capabilities').split(',');
-  const templateFilePath = core.getInput('template-file');
-  const artifactName = core.getInput('artifact-name');
-
+const deployStack = async ({
+  sha,
+  parameters,
+  stackName,
+  capabilities,
+  templateFilePath,
+  artifactName,
+}) => {
   await deleteChangeSet({ stackName, changeSetName: sha });
 
   const changeSetType = await getChangeSetType(stackName);
@@ -141,11 +140,6 @@ const main = async () => {
   await cloudformation.waitFor(completionState, { StackName: stackName });
 };
 
-try {
-  if (!AWS_REGION) {
-    throw new Error('"AWS_REGION" environment variable is not defined.');
-  }
-  main();
-} catch (error) {
-  core.setFailed(error.message);
-}
+module.exports = {
+  deployStack,
+};

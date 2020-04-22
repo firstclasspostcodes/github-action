@@ -1,0 +1,13 @@
+name: 'CloudFormation: Errors'
+description: |
+  This command lists stack events in-order to find an error preventing the stack
+  from completing the prior operation.
+inputs:
+  stack-name:
+    type: string
+    required: true
+    description: |
+      The CloudFormation stack name as identified inside AWS.
+runs:
+  using: 'node12'
+  main: 'dist/run.js'

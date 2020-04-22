@@ -1,0 +1,15 @@
+name: 'CloudFormation: Delete'
+description: |
+  This command deletes a CloudFormation stack. If no stack is found, this command
+  simply returns.
+
+  Before completing, this action will wait for the stack delete to complete.
+inputs:
+  stack-name:
+    type: string
+    required: true
+    description: |
+      The CloudFormation stack name as identified inside AWS.
+runs:
+  using: 'node12'
+  main: 'dist/run.js'

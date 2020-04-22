@@ -1,20 +1,17 @@
-const minimist = require('minimist');
 const core = require('@actions/core');
 const artifact = require('@actions/artifact');
 const exec = require('@actions/exec');
 
 const artifactClient = artifact.create();
 
-const main = async (argv) => {
+const packageTemplate = async ({
+  templateFile,
+  s3Bucket,
+  s3Prefix,
+  kmsKeyId,
+  artifactName,
+}) => {
   try {
-    const {
-      ['template-file']: templateFile,
-      ['s3-bucket']: s3Bucket,
-      ['s3-prefix']: s3Prefix,
-      ['kms-key-id']: kmsKeyId,
-      ['artifact-name']: artifactName,
-    } = argv;
-
     const sanitizedS3Preix = s3Prefix.replace(/(^\/|\/$)/g, '');
 
     const outputTemplateFilename = `${process.env.GITHUB_SHA}.yml`;
@@ -46,4 +43,6 @@ const main = async (argv) => {
   }
 };
 
-main(minimist(process.argv.slice(2)));
+module.exports = {
+  packageTemplate,
+};

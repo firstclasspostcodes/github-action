@@ -31,4 +31,4 @@ inputs:
       template.
 runs:
   using: 'node12'
-  main: 'dist/index.js'
+  main: 'dist/run.js'
