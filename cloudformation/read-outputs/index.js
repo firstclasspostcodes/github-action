@@ -15,9 +15,9 @@ const toEnvKey = (key) => toKey(key, '_').toUpperCase();
 const toOutputKey = (key) => toKey(key, '-').toLowerCase();
 
 const readOutputs = async ({ stackName }, step) => {
-  const {
-    Stacks: [stack],
-  } = await cloudformation.describeStacks({ StackName: stackName }).promise();
+  const { Stacks: [stack] = [] } = await cloudformation
+    .describeStacks({ StackName: stackName })
+    .promise();
 
   if (!stack) {
     throw new Error(`The stack "${stackName} does not exist.`);

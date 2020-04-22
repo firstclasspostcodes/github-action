@@ -20,7 +20,7 @@ const {
 const changeSetName = process.env.GITHUB_SHA;
 
 const stepHandler = {
-  debug: console.log,
+  debug: (str) => console.log(`::debug:: ${str}`),
   setOutput: (key, value) =>
     console.log(`::set-output ${key}=string::${value}`),
   exportVariable: (key, value) => console.log(`export ${key}=${value}`),

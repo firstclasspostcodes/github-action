@@ -13,7 +13,7 @@ inputs:
       The name of the S3 bucket that will be used to store uploaded artifacts
       produced by packaging the template.
   s3-prefix:
-    default: ""
+    default: ''
     description: |
       The S3 prefix to be applied to any uploaded artifacts.
   kms-key-id:
