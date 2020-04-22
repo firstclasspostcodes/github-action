@@ -9,7 +9,7 @@ const { AWS_REGION } = process.env;
 const cloudformation = new CloudFormation({ region: AWS_REGION });
 
 const getTemplateBody = async ({ filepath, artifactName }) => {
-  if (artifact && filepath) {
+  if (artifactName && filepath) {
     throw new Error(
       `Both filepath and artifact are set, choose one or the other.`
     );
@@ -18,7 +18,7 @@ const getTemplateBody = async ({ filepath, artifactName }) => {
   let pathToFile;
 
   if (filepath) {
-    pathToFile = path.join(process.cwd(), filepath);
+    pathToFile = path.resolve(process.cwd(), filepath);
   }
 
   if (artifactName) {
@@ -144,9 +144,21 @@ const deployStack = async (
     ChangeSetName: changeSetName,
   };
 
-  await cloudformation
-    .waitFor('changeSetCreateComplete', stackAndChangeSetName)
-    .promise();
+  try {
+    await cloudformation
+      .waitFor('changeSetCreateComplete', stackAndChangeSetName)
+      .promise();
+  } catch (err) {
+    const { StatusReason: reason } = await cloudformation
+      .describeChangeSet(stackAndChangeSetName)
+      .promise();
+
+    step.debug(`Change Set Failed: "${reason}"`);
+
+    if (/no updates/i.test(reason)) {
+      return true;
+    }
+  }
 
   step.endGroup();
 

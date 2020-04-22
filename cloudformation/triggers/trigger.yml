@@ -44,7 +44,7 @@ Resources:
           Properties:
             Pattern: !Ref EventPattern
       InlineCode: !Sub |
-        exports.handler = async () => {
+        exports.handler = () => {
           const token = process.env.GITHUB_TOKEN;
 
           const options = {
@@ -57,13 +57,17 @@ Resources:
             },
           };
 
-          const req = require('https').request(options, (res) => {
-            console.log(`statusCode: ${!res.statusCode}`)
+          return new Promise((resolve, reject) => {
+            const req = require('https').request(options, (res) => {
+              console.log(`statusCode: ${!res.statusCode}`);
+              if (res.statusCode < 200 || res.statusCode > 299) {
+                return reject(new Error());
+              }
+              return resolve(true);
+            });
+
+            req.write(JSON.stringify({ event_type: '${EventType}' }));
+
+            return req.end();
           });
-
-          req.write(JSON.stringify({
-            event_type: '${EventType}',
-          }));
-
-          return req.end();
         };
