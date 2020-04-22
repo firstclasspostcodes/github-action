@@ -15488,49 +15488,45 @@ module.exports = Operation;
 /***/ 508:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
-const core = __webpack_require__(852);
 const artifact = __webpack_require__(699);
 const exec = __webpack_require__(353);
 
 const artifactClient = artifact.create();
 
-const packageTemplate = async ({
-  templateFile,
-  s3Bucket,
-  s3Prefix,
-  kmsKeyId,
-  artifactName,
-}) => {
-  try {
-    const sanitizedS3Preix = s3Prefix.replace(/(^\/|\/$)/g, '');
+const packageTemplate = async (
+  { templateFile, s3Bucket, s3Prefix, kmsKeyId, artifactName },
+  step
+) => {
+  step.startGroup(`Packaging template: ${templateFile}`);
 
-    const outputTemplateFilename = `${process.env.GITHUB_SHA}.yml`;
+  const sanitizedS3Preix = s3Prefix.replace(/(^\/|\/$)/g, '');
 
-    await exec.exec('aws', [
-      'cloudformation',
-      'package',
-      '--template-file',
-      templateFile,
-      '--s3-bucket',
-      s3Bucket,
-      '--s3-prefix',
-      sanitizedS3Preix,
-      '--kms-key-id',
-      kmsKeyId,
-      '--output-template-file',
-      outputTemplateFilename,
-    ]);
+  const outputTemplateFilename = `___template.yml`;
 
-    await artifactClient.uploadArtifact(
-      artifactName,
-      [outputTemplateFilename],
-      process.cwd()
-    );
+  await exec.exec('aws', [
+    'cloudformation',
+    'package',
+    '--template-file',
+    templateFile,
+    '--s3-bucket',
+    s3Bucket,
+    '--s3-prefix',
+    sanitizedS3Preix,
+    '--kms-key-id',
+    kmsKeyId,
+    '--output-template-file',
+    outputTemplateFilename,
+  ]);
 
-    return true;
-  } catch (error) {
-    core.setFailed(error.message);
-  }
+  await artifactClient.uploadArtifact(
+    artifactName,
+    [outputTemplateFilename],
+    process.cwd()
+  );
+
+  step.endGroup();
+
+  return true;
 };
 
 module.exports = {
@@ -15652,6 +15648,7 @@ exports.PersonalAccessTokenCredentialHandler = PersonalAccessTokenCredentialHand
 /***/ 522:
 /***/ (function(__unusedmodule, __unusedexports, __webpack_require__) {
 
+const core = __webpack_require__(852);
 const minimist = __webpack_require__(816);
 
 const { packageTemplate } = __webpack_require__(508);
@@ -15671,36 +15668,35 @@ const {
   ['artifact-name']: artifactName,
 } = argv;
 
-const changeSetName = process.env.GITHUB_SHA;
-
-const stepHandler = {
-  debug: (str) => console.log(`::debug:: ${str}`),
-  setOutput: (key, value) =>
-    console.log(`::set-output ${key}=string::${value}`),
-  exportVariable: (key, value) => console.log(`export ${key}=${value}`),
-};
+const changeSetName = `c-${process.env.GITHUB_SHA}`;
 
 const main = async () => {
   try {
-    await packageTemplate({
-      templateFile,
-      s3Bucket,
-      s3Prefix,
-      kmsKeyId,
-      artifactName,
-    });
+    await packageTemplate(
+      {
+        templateFile,
+        s3Bucket,
+        s3Prefix,
+        kmsKeyId,
+        artifactName,
+      },
+      core
+    );
 
-    await deployStack({
-      changeSetName,
-      parameters,
-      stackName,
-      artifactName,
-      capabilities: capabilities.split(','),
-    });
+    await deployStack(
+      {
+        changeSetName,
+        parameters,
+        stackName,
+        artifactName,
+        capabilities: capabilities.split(','),
+      },
+      core
+    );
 
-    await readOutputs({ stackName }, stepHandler);
-  } catch (err) {
-    console.error(err);
+    await readOutputs({ stackName }, core);
+  } catch (error) {
+    core.setFailed(error.message);
     process.exit(1);
   }
 };
@@ -15730,16 +15726,19 @@ const getTemplateBody = async ({ filepath, artifactName }) => {
     );
   }
 
-  let pathToFile = path.join(process.cwd(), filepath);
+  let pathToFile;
+
+  if (filepath) {
+    pathToFile = path.join(process.cwd(), filepath);
+  }
 
   if (artifactName) {
     const artifactClient = artifact.create();
-    const sha = process.env.GITHUB_SHA;
     const { downloadPath } = await artifactClient.downloadArtifact(
       artifactName,
       process.cwd()
     );
-    pathToFile = path.join(downloadPath, `${sha}.yml`);
+    pathToFile = path.join(downloadPath, `___template.yml`);
   }
 
   if (!fs.existsSync(pathToFile)) {
@@ -15759,7 +15758,7 @@ const getChangeSetType = async (stackName) => {
       .describeStacks({ StackName: stackName })
       .promise();
 
-    if (stack) {
+    if (stack.StackStatus !== 'REVIEW_IN_PROGRESS') {
       changeSetType = 'UPDATE';
     }
   } catch (err) {
@@ -15814,17 +15813,31 @@ const deleteChangeSet = async ({ stackName, changeSetName }) => {
   return true;
 };
 
-const deployStack = async ({
-  changeSetName,
-  parameters,
-  stackName,
-  capabilities,
-  templateFilePath,
-  artifactName,
-}) => {
-  await deleteChangeSet({ stackName, changeSetName });
+const deployStack = async (
+  {
+    changeSetName,
+    parameters,
+    stackName,
+    capabilities,
+    templateFilePath,
+    artifactName,
+  },
+  step
+) => {
+  await step.group('Deleting existing changeset', () =>
+    deleteChangeSet({ stackName, changeSetName })
+  );
 
   const changeSetType = await getChangeSetType(stackName);
+
+  const templateBody = await step.group('Retrieving packaged template', () =>
+    getTemplateBody({
+      artifactName,
+      filepath: templateFilePath,
+    })
+  );
+
+  step.startGroup(`Creating ChangeSet on stack: ${stackName}`);
 
   const changeSetParams = {
     StackName: stackName,
@@ -15832,23 +15845,25 @@ const deployStack = async ({
     Capabilities: capabilities,
     ChangeSetType: changeSetType,
     Parameters: getStackParameters(parameters),
-    TemplateBody: await getTemplateBody({
-      artifactName,
-      filepath: templateFilePath,
-    }),
+    TemplateBody: templateBody,
   };
 
   await cloudformation.createChangeSet(changeSetParams).promise();
 
-  await cloudformation
-    .waitFor('changeSetCreateComplete', {
-      ChangeSetName: changeSetName,
-    })
-    .promise();
+  const stackAndChangeSetName = {
+    StackName: stackName,
+    ChangeSetName: changeSetName,
+  };
 
   await cloudformation
-    .executeChangeSet({ StackName: stackName, ChangeSetName: changeSetName })
+    .waitFor('changeSetCreateComplete', stackAndChangeSetName)
     .promise();
+
+  step.endGroup();
+
+  step.startGroup(`Executing ChangeSet on stack: ${stackName}`);
+
+  await cloudformation.executeChangeSet(stackAndChangeSetName).promise();
 
   let completionState = 'stackCreateComplete';
 
@@ -15859,6 +15874,8 @@ const deployStack = async ({
   await cloudformation
     .waitFor(completionState, { StackName: stackName })
     .promise();
+
+  step.endGroup();
 };
 
 module.exports = {
@@ -28505,6 +28522,8 @@ const toOutputKey = (key) => toKey(key, '-').toLowerCase();
 
 const readOutputs = async ({ stackName }, step) => {
   try {
+    step.startGroup(`Reading outputs for stack: ${stackName}`);
+
     const { Stacks: [stack] = [] } = await cloudformation
       .describeStacks({ StackName: stackName })
       .promise();
@@ -28517,6 +28536,8 @@ const readOutputs = async ({ stackName }, step) => {
       step.exportVariable(toEnvKey(key), value);
       return true;
     });
+
+    step.endGroup();
 
     return true;
   } catch (err) {

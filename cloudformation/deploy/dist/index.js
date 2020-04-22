@@ -14939,7 +14939,7 @@ try {
   }
 
   const deployParams = {
-    changeSetName: process.env.GITHUB_SHA,
+    changeSetName: `c-${process.env.GITHUB_SHA}`,
     parameters: core.getInput('parameters'),
     stackName: core.getInput('stack-name'),
     capabilities: core.getInput('capabilities').split(','),
@@ -15187,16 +15187,19 @@ const getTemplateBody = async ({ filepath, artifactName }) => {
     );
   }
 
-  let pathToFile = path.join(process.cwd(), filepath);
+  let pathToFile;
+
+  if (filepath) {
+    pathToFile = path.join(process.cwd(), filepath);
+  }
 
   if (artifactName) {
     const artifactClient = artifact.create();
-    const sha = process.env.GITHUB_SHA;
     const { downloadPath } = await artifactClient.downloadArtifact(
       artifactName,
       process.cwd()
     );
-    pathToFile = path.join(downloadPath, `${sha}.yml`);
+    pathToFile = path.join(downloadPath, `___template.yml`);
   }
 
   if (!fs.existsSync(pathToFile)) {
@@ -15216,7 +15219,7 @@ const getChangeSetType = async (stackName) => {
       .describeStacks({ StackName: stackName })
       .promise();
 
-    if (stack) {
+    if (stack.StackStatus !== 'REVIEW_IN_PROGRESS') {
       changeSetType = 'UPDATE';
     }
   } catch (err) {
@@ -15271,17 +15274,31 @@ const deleteChangeSet = async ({ stackName, changeSetName }) => {
   return true;
 };
 
-const deployStack = async ({
-  changeSetName,
-  parameters,
-  stackName,
-  capabilities,
-  templateFilePath,
-  artifactName,
-}) => {
-  await deleteChangeSet({ stackName, changeSetName });
+const deployStack = async (
+  {
+    changeSetName,
+    parameters,
+    stackName,
+    capabilities,
+    templateFilePath,
+    artifactName,
+  },
+  step
+) => {
+  await step.group('Deleting existing changeset', () =>
+    deleteChangeSet({ stackName, changeSetName })
+  );
 
   const changeSetType = await getChangeSetType(stackName);
+
+  const templateBody = await step.group('Retrieving packaged template', () =>
+    getTemplateBody({
+      artifactName,
+      filepath: templateFilePath,
+    })
+  );
+
+  step.startGroup(`Creating ChangeSet on stack: ${stackName}`);
 
   const changeSetParams = {
     StackName: stackName,
@@ -15289,23 +15306,25 @@ const deployStack = async ({
     Capabilities: capabilities,
     ChangeSetType: changeSetType,
     Parameters: getStackParameters(parameters),
-    TemplateBody: await getTemplateBody({
-      artifactName,
-      filepath: templateFilePath,
-    }),
+    TemplateBody: templateBody,
   };
 
   await cloudformation.createChangeSet(changeSetParams).promise();
 
-  await cloudformation
-    .waitFor('changeSetCreateComplete', {
-      ChangeSetName: changeSetName,
-    })
-    .promise();
+  const stackAndChangeSetName = {
+    StackName: stackName,
+    ChangeSetName: changeSetName,
+  };
 
   await cloudformation
-    .executeChangeSet({ StackName: stackName, ChangeSetName: changeSetName })
+    .waitFor('changeSetCreateComplete', stackAndChangeSetName)
     .promise();
+
+  step.endGroup();
+
+  step.startGroup(`Executing ChangeSet on stack: ${stackName}`);
+
+  await cloudformation.executeChangeSet(stackAndChangeSetName).promise();
 
   let completionState = 'stackCreateComplete';
 
@@ -15316,6 +15335,8 @@ const deployStack = async ({
   await cloudformation
     .waitFor(completionState, { StackName: stackName })
     .promise();
+
+  step.endGroup();
 };
 
 module.exports = {

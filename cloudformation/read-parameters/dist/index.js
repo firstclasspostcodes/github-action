@@ -11982,6 +11982,8 @@ const toEnvKey = (key) => toKey(key, '_').toUpperCase();
 const toOutputKey = (key) => toKey(key, '-').toLowerCase();
 
 const readParameters = async ({ pathPrefix }, step) => {
+  step.startGroup(`Reading parameters with prefix: ${pathPrefix}`);
+
   const { Parameters } = await ssm
     .getParametersByPath({ Path: pathPrefix, Recursive: true })
     .promise();
@@ -11992,6 +11994,8 @@ const readParameters = async ({ pathPrefix }, step) => {
     step.exportVariable(toEnvKey(name), value);
     return true;
   });
+
+  step.endGroup();
 
   return true;
 };
