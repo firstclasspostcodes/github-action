@@ -15211,9 +15211,9 @@ const getTemplateBody = async ({ filepath, artifactName }) => {
 const getChangeSetType = async (stackName) => {
   let changeSetType = 'CREATE';
 
-  const {
-    Stacks: [stack],
-  } = cloudformation.describeStacks({ StackName: stackName }).promise();
+  const { Stacks: [stack] = [] } = await cloudformation
+    .describeStacks({ StackName: stackName })
+    .promise();
 
   if (stack) {
     changeSetType = 'UPDATE';
@@ -15309,7 +15309,9 @@ const deployStack = async ({
     completionState = 'stackUpdateComplete';
   }
 
-  await cloudformation.waitFor(completionState, { StackName: stackName });
+  await cloudformation
+    .waitFor(completionState, { StackName: stackName })
+    .promise();
 };
 
 module.exports = {

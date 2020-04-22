@@ -11998,9 +11998,9 @@ const { AWS_REGION } = process.env;
 const cloudformation = new CloudFormation({ region: AWS_REGION });
 
 const doesStackExist = async (stackName) => {
-  const {
-    Stacks: [stack],
-  } = cloudformation.describeStacks({ StackName: stackName }).promise();
+  const { Stacks: [stack] = [] } = await cloudformation
+    .describeStacks({ StackName: stackName })
+    .promise();
 
   if (stack) {
     return true;

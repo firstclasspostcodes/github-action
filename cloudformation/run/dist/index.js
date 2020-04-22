@@ -15674,7 +15674,7 @@ const {
 const changeSetName = process.env.GITHUB_SHA;
 
 const stepHandler = {
-  debug: console.log,
+  debug: (str) => console.log(`::debug:: ${str}`),
   setOutput: (key, value) =>
     console.log(`::set-output ${key}=string::${value}`),
   exportVariable: (key, value) => console.log(`export ${key}=${value}`),
@@ -15750,9 +15750,9 @@ const getTemplateBody = async ({ filepath, artifactName }) => {
 const getChangeSetType = async (stackName) => {
   let changeSetType = 'CREATE';
 
-  const {
-    Stacks: [stack],
-  } = cloudformation.describeStacks({ StackName: stackName }).promise();
+  const { Stacks: [stack] = [] } = await cloudformation
+    .describeStacks({ StackName: stackName })
+    .promise();
 
   if (stack) {
     changeSetType = 'UPDATE';
@@ -15848,7 +15848,9 @@ const deployStack = async ({
     completionState = 'stackUpdateComplete';
   }
 
-  await cloudformation.waitFor(completionState, { StackName: stackName });
+  await cloudformation
+    .waitFor(completionState, { StackName: stackName })
+    .promise();
 };
 
 module.exports = {
@@ -28494,9 +28496,9 @@ const toEnvKey = (key) => toKey(key, '_').toUpperCase();
 const toOutputKey = (key) => toKey(key, '-').toLowerCase();
 
 const readOutputs = async ({ stackName }, step) => {
-  const {
-    Stacks: [stack],
-  } = await cloudformation.describeStacks({ StackName: stackName }).promise();
+  const { Stacks: [stack] = [] } = await cloudformation
+    .describeStacks({ StackName: stackName })
+    .promise();
 
   if (!stack) {
     throw new Error(`The stack "${stackName} does not exist.`);

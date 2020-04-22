@@ -43,7 +43,7 @@ inputs:
       template.
 runs:
   using: docker
-  image: docker://firstclasspostcodes/github-action:1.0.2
+  image: docker://firstclasspostcodes/github-action:1.0.3
   args:
     - /command/cloudformation/run/dist/index.js
     - --parameters=${{ inputs.parameters }}
