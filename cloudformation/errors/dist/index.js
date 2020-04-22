@@ -12025,25 +12025,15 @@ const listStackEvents = async ({ stackName }, step) => {
     .describeStackEvents(params)
     .promise();
 
-  const tableData = StackEvents.map((event) => {
-    const {
-      LogicalResourceId,
-      ResourceType,
-      Timestamp,
-      ResourceStatus,
-      ResourceStatusReason,
-    } = event;
+  const tableKeys = [
+    'LogicalResourceId',
+    'ResourceType',
+    'Timestamp',
+    'ResourceStatus',
+    'ResourceStatusReason',
+  ];
 
-    return {
-      Id: LogicalResourceId,
-      Type: ResourceType,
-      Time: Timestamp,
-      Status: ResourceStatus,
-      Reason: ResourceStatusReason,
-    };
-  });
-
-  console.table(tableData);
+  console.table(StackEvents, tableKeys);
 };
 
 module.exports = {
