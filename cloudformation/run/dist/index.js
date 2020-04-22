@@ -15681,24 +15681,29 @@ const stepHandler = {
 };
 
 const main = async () => {
-  await packageTemplate({
-    templateFile,
-    s3Bucket,
-    s3Prefix,
-    kmsKeyId,
-    artifactName,
-  });
+  try {
+    await packageTemplate({
+      templateFile,
+      s3Bucket,
+      s3Prefix,
+      kmsKeyId,
+      artifactName,
+    });
 
-  await deployStack({
-    changeSetName,
-    parameters,
-    stackName,
-    templateFilePath: templateFile,
-    artifactName,
-    capabilities: capabilities.split(','),
-  });
+    await deployStack({
+      changeSetName,
+      parameters,
+      stackName,
+      templateFilePath: templateFile,
+      artifactName,
+      capabilities: capabilities.split(','),
+    });
 
-  await readOutputs({ stackName }, stepHandler);
+    await readOutputs({ stackName }, stepHandler);
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
 };
 
 main();
@@ -15750,12 +15755,16 @@ const getTemplateBody = async ({ filepath, artifactName }) => {
 const getChangeSetType = async (stackName) => {
   let changeSetType = 'CREATE';
 
-  const { Stacks: [stack] = [] } = await cloudformation
-    .describeStacks({ StackName: stackName })
-    .promise();
+  try {
+    const { Stacks: [stack] = [] } = await cloudformation
+      .describeStacks({ StackName: stackName })
+      .promise();
 
-  if (stack) {
-    changeSetType = 'UPDATE';
+    if (stack) {
+      changeSetType = 'UPDATE';
+    }
+  } catch (err) {
+    console.log(`Stack "${stackName} does not exist. Creating.`);
   }
 
   return changeSetType;
@@ -28496,24 +28505,24 @@ const toEnvKey = (key) => toKey(key, '_').toUpperCase();
 const toOutputKey = (key) => toKey(key, '-').toLowerCase();
 
 const readOutputs = async ({ stackName }, step) => {
-  const { Stacks: [stack] = [] } = await cloudformation
-    .describeStacks({ StackName: stackName })
-    .promise();
+  try {
+    const { Stacks: [stack] = [] } = await cloudformation
+      .describeStacks({ StackName: stackName })
+      .promise();
 
-  if (!stack) {
+    const { Outputs: outputs } = stack;
+
+    outputs.forEach(({ OutputKey: key, OutputValue: value }) => {
+      step.debug(`Output: "${key}" = "${value}"`);
+      step.setOutput(toOutputKey(key), value);
+      step.exportVariable(toEnvKey(key), value);
+      return true;
+    });
+
+    return true;
+  } catch (err) {
     throw new Error(`The stack "${stackName} does not exist.`);
   }
-
-  const { Outputs: outputs } = stack;
-
-  outputs.forEach(({ OutputKey: key, OutputValue: value }) => {
-    step.debug(`Output: "${key}" = "${value}"`);
-    step.setOutput(toOutputKey(key), value);
-    step.exportVariable(toEnvKey(key), value);
-    return true;
-  });
-
-  return true;
 };
 
 module.exports = {

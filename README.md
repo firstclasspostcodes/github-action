@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Test Read Parameters
         id: read-parameters
-        uses: firstclasspostcodes/github-action/cloudformation/read-parameters@v1.0.3
+        uses: firstclasspostcodes/github-action/cloudformation/read-parameters@v1.0.4
         env:
           AWS_REGION: eu-west-1
         with:
