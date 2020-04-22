@@ -15694,7 +15694,6 @@ const main = async () => {
       changeSetName,
       parameters,
       stackName,
-      templateFilePath: templateFile,
       artifactName,
       capabilities: capabilities.split(','),
     });
