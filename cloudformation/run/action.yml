@@ -1,0 +1,53 @@
+name: 'CloudFormation: Run'
+description: |
+  Packages a cloudformation template, deploys it and reads stack outputs.
+
+  This command runs: cloudformation/package-template, cloudformation/deploy and
+  cloudformation/read-outputs.
+inputs:
+  parameters:
+    type: string
+    description: |
+      A string containing parameter names and values as valid JSON.
+    default: '{}'
+  capabilities:
+    type: string
+    description: |
+      A comma-delimited list of IAM capabilities for this deployment.
+    default: CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND
+  stack-name:
+    type: string
+    required: true
+    description: |
+      The CloudFormation stack name as identified inside AWS.
+  template-file:
+    required: true
+    description: |
+      The path to a CloudFormation template file in JSON or YAML format.
+  s3-bucket:
+    required: true
+    description: |
+      The name of the S3 bucket that will be used to store uploaded artifacts
+      produced by packaging the template.
+  s3-prefix:
+    default: ""
+    description: |
+      The S3 prefix to be applied to any uploaded artifacts.
+  kms-key-id:
+    description: |
+      The KMS encryption key used to encrypt uploaded artifacts.
+  artifact-name:
+    type: string
+    description: |
+      The name of the artifact that will be created, containing the packaged
+      template.
+runs:
+  using: docker
+  image: docker://firstclasspostcodes/github-action:0.3.0
+  args:
+    - /command/cloudformation/run/dist/run.js
+    - --template-file=${{ inputs.template-file }}
+    - --s3-bucket=${{ inputs.s3-bucket }}
+    - --s3-prefix=${{ inputs.s3-prefix }}
+    - --kms-key-id=${{ inputs.kms-key-id }}
+    - --artifact-name=${{ inputs.artifact-name }}

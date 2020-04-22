@@ -15,13 +15,20 @@
         "replacements": [
           {
             "files": [
-              "cloudformation/package-template/action.yml"
+              "cloudformation/package-template/action.yml",
+              "cloudformation/run/action.yml"
             ],
             "from": ":[\\.0-9]+",
             "to": ":${nextRelease.version}",
             "results": [
               {
                 "file": "cloudformation/package-template/action.yml",
+                "hasChanged": true,
+                "numMatches": 1,
+                "numReplacements": 1
+              },
+              {
+                "file": "cloudformation/run/action.yml",
                 "hasChanged": true,
                 "numMatches": 1,
                 "numReplacements": 1

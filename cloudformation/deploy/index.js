@@ -96,20 +96,20 @@ const deleteChangeSet = async ({ stackName, changeSetName }) => {
 };
 
 const deployStack = async ({
-  sha,
+  changeSetName,
   parameters,
   stackName,
   capabilities,
   templateFilePath,
   artifactName,
 }) => {
-  await deleteChangeSet({ stackName, changeSetName: sha });
+  await deleteChangeSet({ stackName, changeSetName });
 
   const changeSetType = await getChangeSetType(stackName);
 
   const changeSetParams = {
     StackName: stackName,
-    ChangeSetName: sha,
+    ChangeSetName: changeSetName,
     Capabilities: capabilities,
     ChangeSetType: changeSetType,
     Parameters: getStackParameters(parameters),
@@ -123,12 +123,12 @@ const deployStack = async ({
 
   await cloudformation
     .waitFor('changeSetCreateComplete', {
-      ChangeSetName: sha,
+      ChangeSetName: changeSetName,
     })
     .promise();
 
   await cloudformation
-    .executeChangeSet({ StackName: stackName, ChangeSetName: sha })
+    .executeChangeSet({ StackName: stackName, ChangeSetName: changeSetName })
     .promise();
 
   let completionState = 'stackCreateComplete';

@@ -10,7 +10,7 @@ try {
   }
 
   const deployParams = {
-    sha: process.env.GITHUB_SHA,
+    changeSetName: process.env.GITHUB_SHA,
     parameters: core.getInput('parameters'),
     stackName: core.getInput('stack-name'),
     capabilities: core.getInput('capabilities').split(','),
@@ -18,7 +18,7 @@ try {
     artifactName: core.getInput('artifact-name'),
   };
 
-  deployStack(deployParams, core);
+  deployStack(deployParams);
 } catch (error) {
   core.setFailed(error.message);
 }
