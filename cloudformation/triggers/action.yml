@@ -1,0 +1,29 @@
+name: 'CloudFormation: Triggers'
+description: |
+  Provide a CloudWatch Event Pattern and enable automated triggers for this repository's
+  workflows, via GitHub repository dispatch events.
+inputs:
+  name:
+    required: true
+    description: |
+      The name for the trigger, must be unique.
+  token:
+    required: true
+    description: |
+      A repository-scoped GitHub token.
+  event-pattern:
+    required: true
+    description: |
+      A JSON input describing the CloudWatch Event Pattern to match.
+  event-type:
+    required: true
+    description: |
+      The name/type of the event that will be dispatched to the repository.
+runs:
+  using: docker
+  image: docker://firstclasspostcodes/github-action:1.0.5
+  args:
+    - /command/cloudformation/triggers/dist/index.js
+    - --token=${{ inputs.token }}
+    - --event-pattern=${{ inputs.event-pattern }}
+    - --event-type=${{ inputs.event-type }}

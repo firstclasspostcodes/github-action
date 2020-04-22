@@ -1,0 +1,10 @@
+{
+  "name": "triggers",
+  "private": true,
+  "version": "0.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "ncc build run.js",
+    "start": "node run.js"
+  }
+}

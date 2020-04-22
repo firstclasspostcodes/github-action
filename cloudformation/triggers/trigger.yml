@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion : '2010-09-09'
+
+Transform: AWS::Serverless-2016-10-31
+
+Description: GitHub Trigger CloudFormation
+
+Parameters:
+
+  Token:
+    Type: String
+    NoEcho: true
+    Description: |
+      The secret token that will be used to dispatch events to the github
+      repository.
+
+  EventType:
+    Type: String
+    Description: |
+      The type of event that is dispatched to the GitHub repository.
+
+  EventPattern:
+    Type: String
+    Description: |
+      The CloudWatch event pattern to match for the trigger.
+
+  Repository:
+    Type: String
+    Description: |
+      The full user or organisation name and repository name.
+ 
+Resources:      
+
+  TriggerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs12.x
+      Environment:
+        Variables:
+          GITHUB_TOKEN: !Ref Token
+      Events:
+        TriggerEvent:
+          Type: EventBridgeRule
+          Properties:
+            Pattern: !Ref EventPattern
+      InlineCode: !Sub |
+        exports.handler = async () => {
+          const token = process.env.GITHUB_TOKEN;
+
+          const options = {
+            hostname: 'api.github.com',
+            method: 'POST',
+            path: '/repos/${Repository}/dispatches',
+            headers: {
+              'User-Agent': 'node',
+              'Authorization': `token ${!token}`,
+            },
+          };
+
+          const req = require('https').request(options, (res) => {
+            console.log(`statusCode: ${!res.statusCode}`)
+          });
+
+          req.write(JSON.stringify({
+            event_type: '${EventType}',
+          }));
+
+          return req.end();
+        };
