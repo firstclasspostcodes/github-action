@@ -3,9 +3,9 @@ const minimist = require('minimist');
 
 const { deployStack } = require('../deploy');
 
-const argv = minimist(process.argv.slice(2));
+const TEMPLATE_FILE_PATH = '/command/cloudformation/triggers/trigger.yml';
 
-const templateFilePath = `${__dirname}/trigger.yml`;
+const argv = minimist(process.argv.slice(2));
 
 const {
   name: stackName,
@@ -29,10 +29,10 @@ const main = async () => {
   try {
     await deployStack(
       {
+        templateFilePath: TEMPLATE_FILE_PATH,
         changeSetName,
         parameters,
         stackName,
-        templateFilePath,
         capabilities,
       },
       core
