@@ -9,6 +9,7 @@ const argv = minimist(process.argv.slice(2));
 
 const {
   ['parameters']: parameters,
+  ['tags']: tags,
   ['capabilities']: capabilities,
   ['stack-name']: stackName,
   ['template-file']: templateFile,
@@ -37,6 +38,7 @@ const main = async () => {
       {
         changeSetName,
         parameters,
+        tags,
         stackName,
         artifactName,
         capabilities: capabilities.split(','),

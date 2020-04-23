@@ -10,6 +10,11 @@ inputs:
     description: |
       A string containing parameter names and values as valid JSON.
     default: '{}'
+  tags:
+    type: string
+    description: |
+      A string containing tag keys and values as valid JSON.
+    default: '{}'
   capabilities:
     type: string
     description: |
@@ -47,6 +52,7 @@ runs:
   args:
     - /command/cloudformation/run/dist/index.js
     - --parameters=${{ inputs.parameters }}
+    - --tags=${{ inputs.tags }}
     - --capabilities=${{ inputs.capabilities }}
     - --stack-name=${{ inputs.stack-name }}
     - --template-file=${{ inputs.template-file }}

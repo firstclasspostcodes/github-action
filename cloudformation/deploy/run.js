@@ -12,6 +12,7 @@ try {
   const deployParams = {
     changeSetName: `c-${process.env.GITHUB_SHA}`,
     parameters: core.getInput('parameters'),
+    tags: core.getInput('tags'),
     stackName: core.getInput('stack-name'),
     capabilities: core.getInput('capabilities').split(','),
     templateFilePath: core.getInput('template-file'),

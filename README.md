@@ -123,6 +123,16 @@ jobs:
                 "UsePreviousValue": true
               }
             }
+          # Optional: Pass through a valid JSON object of tags.
+          # 
+          # Tags added to CloudFormation stacks are also added to supported resources
+          # that are deployed by the stack. Passing through the ref and sha helps you to
+          # diagnose issues with releases.
+          tags: |
+            {
+              "Release": "${{ github.ref }}",
+              "SHA": "${{ github.sha }}"
+            }
           # Optional: A comma-delimited list of capabilities that the deployment requires.
           # The default value is set to the example value.
           capabilities: 'CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND'
@@ -154,6 +164,16 @@ jobs:
               "PreviousExampleValue": {
                 "UsePreviousValue": true
               }
+            }
+          # Optional: Pass through a valid JSON object of tags.
+          # 
+          # Tags added to CloudFormation stacks are also added to supported resources
+          # that are deployed by the stack. Passing through the ref and sha helps you to
+          # diagnose issues with releases.
+          tags: |
+            {
+              "Release": "${{ github.ref }}",
+              "SHA": "${{ github.sha }}"
             }
           # Required: Set the name the CloudFormation stack that will be deployed.
           stack-name: example-test-stack
