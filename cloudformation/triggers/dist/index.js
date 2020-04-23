@@ -15803,6 +15803,23 @@ const getChangeSetType = async (stackName) => {
   return changeSetType;
 };
 
+const getStackTags = (json) => {
+  if (typeof json === 'string') {
+    try {
+      return getStackTags(JSON.parse(json));
+    } catch (e) {
+      throw new Error(`Tag JSON: "${json}" was invalid JSON.`);
+    }
+  }
+
+  const tags = Object.entries(json).map(([key, value]) => ({
+    Key: key,
+    Value: value,
+  }));
+
+  return tags;
+};
+
 const getStackParameters = (json) => {
   if (typeof json === 'string') {
     try {
@@ -15856,6 +15873,7 @@ const deployStack = async (
     capabilities,
     templateFilePath,
     artifactName,
+    tags,
   },
   step
 ) => {
@@ -15880,6 +15898,7 @@ const deployStack = async (
     Capabilities: capabilities,
     ChangeSetType: changeSetType,
     Parameters: getStackParameters(parameters),
+    Tags: getStackTags(tags),
     TemplateBody: templateBody,
   };
 
