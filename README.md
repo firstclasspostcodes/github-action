@@ -56,7 +56,7 @@ jobs:
       # GitHub personal access token and set it as a secret. In the example below,
       # we've used "AWS_TRIGGER_TOKEN", which is a GitHub personal access token.
       - name: 'cloudformation/triggers'
-        uses: firstclasspostcodes/github-action/cloudformation/triggers@v0.0.0
+        uses: firstclasspostcodes/github-action/cloudformation/triggers@v1.2.4
         with:
           # Required: set a unique name for the created CloudFormation stack.
           name: my-parameter-trigger-rule
@@ -86,7 +86,7 @@ jobs:
       # 
       # https://docs.aws.amazon.com/cli/latest/reference/cloudformation/package.html
       - name: 'cloudforation/package-template'
-        uses: firstclasspostcodes/github-action/cloudformation/package-template@v0.0.0
+        uses: firstclasspostcodes/github-action/cloudformation/package-template@v1.2.4
         with:
           # Required: Pass a relative filepath to the template, from the root of the repository.
           template-file: ./examples/template.yml
@@ -108,7 +108,7 @@ jobs:
       # will either be created, or updated if they already exist. If no updates are to
       # be performed, this action will exit successfully and has no effect.
       - name: 'cloudformation/deploy'
-        uses: firstclasspostcodes/github-action/cloudformation/deploy@v0.0.0
+        uses: firstclasspostcodes/github-action/cloudformation/deploy@v1.2.4
         with:
           # Optional: Pass through a valid JSON object for required parameters.
           # 
@@ -140,7 +140,7 @@ jobs:
       # The packaged template is also uploaded as a workflow artifact.
       - name: 'cloudformation/run'
         id: stack
-        uses: firstclasspostcodes/github-action/cloudformation/run@v0.0.0
+        uses: firstclasspostcodes/github-action/cloudformation/run@v1.2.4
         with:
           # Optional: Pass through a valid JSON object for required parameters.
           # 
@@ -173,7 +173,7 @@ jobs:
       # using Node's `console.table` function.
       - name: 'cloudformation/errors'
         if: failure()
-        uses: firstclasspostcodes/github-action/cloudformation/errors@v0.0.0
+        uses: firstclasspostcodes/github-action/cloudformation/errors@v1.2.4
         with:
           # Required: Provide the name of the stack to list errors for.
           stack-name: example-test-stack
@@ -190,7 +190,7 @@ jobs:
       # be output as "master-production-database-name".
       - name: 'cloudformation/read-parameters'
         id: parameters
-        uses: firstclasspostcodes/github-action/cloudformation/read-parameters@v0.0.0
+        uses: firstclasspostcodes/github-action/cloudformation/read-parameters@v1.2.4
         with:
           # Required: The SSM Parameter Store path prefix
           path: "/Master/Production"
@@ -205,7 +205,7 @@ jobs:
       # Delete a CloudFormation stack. If the stack does not exist, then this action
       # has no effect. 
       - name: 'cloudformation/delete'
-        uses: firstclasspostcodes/github-action/cloudformation/delete@v0.0.0
+        uses: firstclasspostcodes/github-action/cloudformation/delete@v1.2.4
         with:
           # Required: The name of the CloudFormation stack to delete.
           stack-name: example-test-stack
