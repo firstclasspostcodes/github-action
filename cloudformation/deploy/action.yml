@@ -20,6 +20,11 @@ inputs:
     required: true
     description: |
       The CloudFormation stack name as identified inside AWS.
+  tags:
+    type: string
+    description: |
+      A string containing tag keys and values as valid JSON.
+    default: '{}'
   template-file:
     type: string
     description: |
