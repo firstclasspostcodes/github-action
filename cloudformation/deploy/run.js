@@ -18,7 +18,7 @@ try {
     artifactName: core.getInput('artifact-name'),
   };
 
-  deployStack(deployParams);
+  deployStack(deployParams, core);
 } catch (error) {
   core.setFailed(error.message);
 }
