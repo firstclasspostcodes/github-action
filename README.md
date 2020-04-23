@@ -42,9 +42,6 @@ jobs:
       AWS_REGION: ${{ matrix.region }}
       
     steps:
-      - name: Checkout
-        uses: actions/checkout@v1
-
       # Using the CloudFormation triggers action enables you to start your workflow,
       # when certain AWS EventBridge or AWS CloudWatch events are triggered inside
       # your AWS account.
