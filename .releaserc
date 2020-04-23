@@ -47,14 +47,14 @@
             "files": [
               "README.md"
             ],
-            "from": "v[\\.0-9]+",
-            "to": "${nextRelease.gitTag}",
+            "from": "@v[\\.0-9]+",
+            "to": "@${nextRelease.gitTag}",
             "results": [
               {
                 "file": "README.md",
                 "hasChanged": true,
-                "numMatches": 1,
-                "numReplacements": 1
+                "numMatches": 7,
+                "numReplacements": 7
               }
             ],
             "countMatches": true
