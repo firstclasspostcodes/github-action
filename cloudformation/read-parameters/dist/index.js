@@ -11984,16 +11984,27 @@ const toOutputKey = (key) => toKey(key, '-').toLowerCase();
 const readParameters = async ({ pathPrefix }, step) => {
   step.startGroup(`Reading parameters with prefix: ${pathPrefix}`);
 
-  const { Parameters } = await ssm
-    .getParametersByPath({ Path: pathPrefix, Recursive: true })
-    .promise();
+  const paths = pathPrefix
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
-  Parameters.forEach(({ Name: name, Value: value }) => {
-    step.debug(`Setting: "${name}" = "${value}"`);
-    step.setOutput(toOutputKey(name), value);
-    step.exportVariable(toEnvKey(name), value);
-    return true;
-  });
+  await Promise.all(
+    paths.map(async (path) => {
+      const { Parameters } = await ssm
+        .getParametersByPath({ Path: path, Recursive: true })
+        .promise();
+
+      Parameters.forEach(({ Name: name, Value: value }) => {
+        step.debug(`Setting: "${name}" = "${value}"`);
+        step.setOutput(toOutputKey(name), value);
+        step.exportVariable(toEnvKey(name), value);
+        return true;
+      });
+
+      return true;
+    })
+  );
 
   step.endGroup();
 
