@@ -10,6 +10,8 @@ inputs:
     required: true
     description: |
       The path prefix for parameters to be read into the environment and output variables.
+
+      You can provide multiple prefixes on separate lines.
 runs:
   using: 'node12'
   main: 'dist/index.js'
