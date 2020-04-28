@@ -4,11 +4,18 @@ const { readOutputs } = require('.');
 
 const { AWS_REGION } = process.env;
 
-try {
-  if (!AWS_REGION) {
-    throw new Error('"AWS_REGION" environment variable is not defined.');
+const main = async () => {
+  try {
+    await readOutputs({ stackName: core.getInput('stack-name') }, core);
+
+    return true;
+  } catch (error) {
+    core.setFailed(error.message);
   }
-  readOutputs({ stackName: core.getInput('stack-name') }, core);
-} catch (error) {
-  core.setFailed(error.message);
+};
+
+if (!AWS_REGION) {
+  throw new Error('"AWS_REGION" environment variable is not defined.');
 }
+
+main();
