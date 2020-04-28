@@ -11411,19 +11411,25 @@ const { listStackEvents } = __webpack_require__(545);
 
 const { AWS_REGION } = process.env;
 
-try {
-  if (!AWS_REGION) {
-    throw new Error('"AWS_REGION" environment variable is not defined.');
+const main = async () => {
+  try {
+    const listParams = {
+      stackName: core.getInput('stack-name'),
+    };
+
+    await listStackEvents(listParams, core);
+
+    return true;
+  } catch (error) {
+    core.setFailed(error.message);
   }
+};
 
-  const listParams = {
-    stackName: core.getInput('stack-name'),
-  };
-
-  listStackEvents(listParams, core);
-} catch (error) {
-  core.setFailed(error.message);
+if (!AWS_REGION) {
+  throw new Error('"AWS_REGION" environment variable is not defined.');
 }
+
+main();
 
 
 /***/ }),
