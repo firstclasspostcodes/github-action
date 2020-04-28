@@ -29,13 +29,6 @@ jobs:
       - name: Build library
         run: npm run build
 
-      - name: Docker Build
-        run: |
-          docker build --cache-from=$DOCKER_IMAGE --compress=true -t $DOCKER_IMAGE .
-        if: github.ref == 'refs/heads/master'
-        env:
-          DOCKER_IMAGE: ${{secrets.DOCKER_IMAGE}}
-
       - name: Semantic Release
         if: github.ref == 'refs/heads/master'
         id: semantic
@@ -44,5 +37,3 @@ jobs:
           branch: master
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-          DOCKER_USERNAME: ${{secrets.DOCKER_USERNAME}}
-          DOCKER_PASSWORD: ${{secrets.DOCKER_PASSWORD}}

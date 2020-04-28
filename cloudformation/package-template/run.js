@@ -1,33 +1,29 @@
 const core = require('@actions/core');
-const minimist = require('minimist');
 
 const { packageTemplate } = require('.');
 
-const argv = minimist(process.argv.slice(2));
-
-const {
-  ['template-file']: templateFile,
-  ['s3-bucket']: s3Bucket,
-  ['s3-prefix']: s3Prefix,
-  ['kms-key-id']: kmsKeyId,
-  ['artifact-name']: artifactName,
-} = argv;
+const { AWS_REGION } = process.env;
 
 const main = async () => {
   try {
-    await packageTemplate(
-      {
-        templateFile,
-        s3Bucket,
-        s3Prefix,
-        kmsKeyId,
-        artifactName,
-      },
-      core
-    );
+    const packageParams = {
+      s3Bucket: core.getInput('s3-bucket'),
+      s3Prefix: core.getInput('s3-prefix'),
+      kmsKeyId: core.getInput('kms-key-id'),
+      templateFile: core.getInput('template-file'),
+      artifactName: core.getInput('artifact-name'),
+    };
+
+    await packageTemplate(packageParams, core);
+
+    return true;
   } catch (error) {
     core.setFailed(error.message);
   }
 };
+
+if (!AWS_REGION) {
+  throw new Error('"AWS_REGION" environment variable is not defined.');
+}
 
 main();

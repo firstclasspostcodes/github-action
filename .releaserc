@@ -68,13 +68,6 @@
         "assets": ["README.md", "cloudformation/**/*"],
         "message": "chore: Updated files for version ${nextRelease.version} [skip ci]"
       }
-    ],
-    "semantic-release-docker"
-  ],
-  "publish": [
-    {
-      "path": "semantic-release-docker",
-      "name": "firstclasspostcodes/github-action"
-    }
+    ]
   ]
 }

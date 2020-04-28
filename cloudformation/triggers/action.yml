@@ -20,11 +20,5 @@ inputs:
     description: |
       The name/type of the event that will be dispatched to the repository.
 runs:
-  using: docker
-  image: docker://firstclasspostcodes/github-action:1.4.1
-  args:
-    - /command/cloudformation/triggers/dist/index.js
-    - --name=${{ inputs.name }}
-    - --token=${{ inputs.token }}
-    - --event-pattern=${{ inputs.event-pattern }}
-    - --event-type=${{ inputs.event-type }}
+  using: 'node12'
+  main: 'dist/index.js'

@@ -47,16 +47,5 @@ inputs:
       The name of the artifact that will be created, containing the packaged
       template.
 runs:
-  using: docker
-  image: docker://firstclasspostcodes/github-action:1.4.1
-  args:
-    - /command/cloudformation/run/dist/index.js
-    - --parameters=${{ inputs.parameters }}
-    - --tags=${{ inputs.tags }}
-    - --capabilities=${{ inputs.capabilities }}
-    - --stack-name=${{ inputs.stack-name }}
-    - --template-file=${{ inputs.template-file }}
-    - --s3-bucket=${{ inputs.s3-bucket }}
-    - --s3-prefix=${{ inputs.s3-prefix }}
-    - --kms-key-id=${{ inputs.kms-key-id }}
-    - --artifact-name=${{ inputs.artifact-name }}
+  using: 'node12'
+  main: 'dist/index.js'
