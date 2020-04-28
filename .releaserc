@@ -15,36 +15,6 @@
         "replacements": [
           {
             "files": [
-              "cloudformation/package-template/action.yml",
-              "cloudformation/triggers/action.yml",
-              "cloudformation/run/action.yml"
-            ],
-            "from": ":[\\.0-9]+",
-            "to": ":${nextRelease.version}",
-            "results": [
-              {
-                "file": "cloudformation/package-template/action.yml",
-                "hasChanged": true,
-                "numMatches": 1,
-                "numReplacements": 1
-              },
-              {
-                "file": "cloudformation/triggers/action.yml",
-                "hasChanged": true,
-                "numMatches": 1,
-                "numReplacements": 1
-              },
-              {
-                "file": "cloudformation/run/action.yml",
-                "hasChanged": true,
-                "numMatches": 1,
-                "numReplacements": 1
-              }
-            ],
-            "countMatches": true
-          },
-          {
-            "files": [
               "README.md"
             ],
             "from": "@v[\\.0-9]+",
