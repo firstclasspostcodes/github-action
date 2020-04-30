@@ -25,6 +25,9 @@ const main = async () => {
       parameters,
       stackName,
       capabilities,
+      tags: {
+        SHA: process.env.GITHUB_SHA,
+      },
     };
 
     await deployStack(deployParams, core);
