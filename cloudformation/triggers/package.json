@@ -1,10 +1,13 @@
 {
   "name": "triggers",
-  "private": true,
   "version": "0.0.0",
   "main": "index.js",
   "scripts": {
+    "prebuild": "yaml2json -s trigger.yml",
     "build": "ncc build run.js",
     "start": "node run.js"
+  },
+  "devDependencies": {
+    "yamljs": "^0.3.0"
   }
 }

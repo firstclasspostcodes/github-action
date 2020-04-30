@@ -10892,6 +10892,13 @@ module.exports = require("assert");
 
 /***/ }),
 
+/***/ 362:
+/***/ (function(module) {
+
+module.exports = {"AWSTemplateFormatVersion":"2010-09-09","Transform":"AWS::Serverless-2016-10-31","Description":"GitHub Trigger CloudFormation","Parameters":{"Token":{"Type":"String","NoEcho":true,"Description":"The secret token that will be used to dispatch events to the github\nrepository.\n"},"EventType":{"Type":"String","Description":"The type of event that is dispatched to the GitHub repository.\n"},"EventPattern":{"Type":"String","Description":"The CloudWatch event pattern to match for the trigger.\n"},"Repository":{"Type":"String","Description":"The full user or organisation name and repository name.\n"}},"Resources":{"TriggerFunction":{"Type":"AWS::Serverless::Function","Properties":{"Handler":"index.handler","Runtime":"nodejs12.x","Environment":{"Variables":{"GITHUB_TOKEN":{"Ref":"Token"}}},"Events":{"TriggerEvent":{"Type":"EventBridgeRule","Properties":{"Pattern":{"Ref":"EventPattern"}}}},"InlineCode":{"Fn::Sub":"exports.handler = () => {\n  const token = process.env.GITHUB_TOKEN;\n\n  const options = {\n    hostname: 'api.github.com',\n    method: 'POST',\n    path: '/repos/${Repository}/dispatches',\n    headers: {\n      'User-Agent': 'node',\n      'Authorization': `token ${!token}`,\n    },\n  };\n\n  return new Promise((resolve, reject) => {\n    const req = require('https').request(options, (res) => {\n      console.log(`statusCode: ${!res.statusCode}`);\n      if (res.statusCode < 200 || res.statusCode > 299) {\n        return reject(new Error());\n      }\n      return resolve(true);\n    });\n\n    req.write(JSON.stringify({ event_type: '${EventType}' }));\n\n    return req.end();\n  });\n};\n"}}}}};
+
+/***/ }),
+
 /***/ 363:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -14929,7 +14936,7 @@ const core = __webpack_require__(852);
 
 const { deployStack } = __webpack_require__(606);
 
-const TEMPLATE_FILE_PATH = '/command/cloudformation/triggers/trigger.yml';
+const template = __webpack_require__(362);
 
 const main = async () => {
   try {
@@ -14947,7 +14954,7 @@ const main = async () => {
     const capabilities = ['CAPABILITY_IAM', 'CAPABILITY_AUTO_EXPAND'];
 
     const deployParams = {
-      templateFilePath: TEMPLATE_FILE_PATH,
+      templateBody: JSON.stringify(template),
       changeSetName,
       parameters,
       stackName,

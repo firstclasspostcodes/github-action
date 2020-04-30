@@ -2,7 +2,7 @@ const core = require('@actions/core');
 
 const { deployStack } = require('../deploy');
 
-const TEMPLATE_FILE_PATH = '/command/cloudformation/triggers/trigger.yml';
+const template = require('./trigger.json');
 
 const main = async () => {
   try {
@@ -20,7 +20,7 @@ const main = async () => {
     const capabilities = ['CAPABILITY_IAM', 'CAPABILITY_AUTO_EXPAND'];
 
     const deployParams = {
-      templateFilePath: TEMPLATE_FILE_PATH,
+      templateBody: JSON.stringify(template),
       changeSetName,
       parameters,
       stackName,

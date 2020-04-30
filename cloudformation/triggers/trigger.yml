@@ -37,37 +37,40 @@ Resources:
       Runtime: nodejs12.x
       Environment:
         Variables:
-          GITHUB_TOKEN: !Ref Token
+          GITHUB_TOKEN:
+            Ref: Token
       Events:
         TriggerEvent:
           Type: EventBridgeRule
           Properties:
-            Pattern: !Ref EventPattern
-      InlineCode: !Sub |
-        exports.handler = () => {
-          const token = process.env.GITHUB_TOKEN;
+            Pattern: 
+              Ref: EventPattern
+      InlineCode:
+        Fn::Sub: |
+          exports.handler = () => {
+            const token = process.env.GITHUB_TOKEN;
 
-          const options = {
-            hostname: 'api.github.com',
-            method: 'POST',
-            path: '/repos/${Repository}/dispatches',
-            headers: {
-              'User-Agent': 'node',
-              'Authorization': `token ${!token}`,
-            },
-          };
+            const options = {
+              hostname: 'api.github.com',
+              method: 'POST',
+              path: '/repos/${Repository}/dispatches',
+              headers: {
+                'User-Agent': 'node',
+                'Authorization': `token ${!token}`,
+              },
+            };
 
-          return new Promise((resolve, reject) => {
-            const req = require('https').request(options, (res) => {
-              console.log(`statusCode: ${!res.statusCode}`);
-              if (res.statusCode < 200 || res.statusCode > 299) {
-                return reject(new Error());
-              }
-              return resolve(true);
+            return new Promise((resolve, reject) => {
+              const req = require('https').request(options, (res) => {
+                console.log(`statusCode: ${!res.statusCode}`);
+                if (res.statusCode < 200 || res.statusCode > 299) {
+                  return reject(new Error());
+                }
+                return resolve(true);
+              });
+
+              req.write(JSON.stringify({ event_type: '${EventType}' }));
+
+              return req.end();
             });
-
-            req.write(JSON.stringify({ event_type: '${EventType}' }));
-
-            return req.end();
-          });
-        };
+          };
