@@ -3,10 +3,12 @@ description: |
   Provide a CloudWatch Event Pattern and enable automated triggers for this repository's
   workflows, via GitHub repository dispatch events.
 inputs:
-  name:
+  stack-name:
+    type: string
     required: true
     description: |
-      The name for the trigger, must be unique.
+      The name of the CloudFormation stack that will be deployed into the
+      AWS account.
   token:
     required: true
     description: |

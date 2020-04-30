@@ -6,7 +6,7 @@ const TEMPLATE_FILE_PATH = '/command/cloudformation/triggers/trigger.yml';
 
 const main = async () => {
   try {
-    const name = core.getInput('name');
+    const stackName = core.getInput('stack-name');
 
     const changeSetName = `c-${process.env.GITHUB_SHA}`;
 
@@ -18,13 +18,6 @@ const main = async () => {
     };
 
     const capabilities = ['CAPABILITY_IAM', 'CAPABILITY_AUTO_EXPAND'];
-
-    const sanitizedRepositoryName = process.env.GITHUB_REPOSITORY.replace(
-      /[^a-z0-9]/g,
-      '-'
-    );
-
-    const stackName = `${sanitizedRepositoryName}--${name}`;
 
     const deployParams = {
       templateFilePath: TEMPLATE_FILE_PATH,
