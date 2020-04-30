@@ -15862,6 +15862,7 @@ const deployStack = async (
     parameters,
     stackName,
     capabilities,
+    templateBody,
     templateFilePath,
     artifactName,
     tags,
@@ -15874,12 +15875,15 @@ const deployStack = async (
 
   const changeSetType = await getChangeSetType(stackName);
 
-  const templateBody = await step.group('Retrieving packaged template', () =>
-    getTemplateBody({
+  const body = await step.group('Retrieving packaged template', () => {
+    if (templateBody) {
+      return templateBody;
+    }
+    return getTemplateBody({
       artifactName,
       filepath: templateFilePath,
-    })
-  );
+    });
+  });
 
   step.startGroup(`Creating ChangeSet on stack: ${stackName}`);
 
@@ -15890,7 +15894,7 @@ const deployStack = async (
     ChangeSetType: changeSetType,
     Parameters: getStackParameters(parameters),
     Tags: getStackTags(tags),
-    TemplateBody: templateBody,
+    TemplateBody: body,
   };
 
   await cloudformation.createChangeSet(changeSetParams).promise();
