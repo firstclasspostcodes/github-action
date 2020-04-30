@@ -15755,6 +15755,10 @@ const getChangeSetType = async (stackName) => {
 };
 
 const getStackTags = (json) => {
+  if (!json) {
+    return [];
+  }
+
   if (typeof json === 'string') {
     try {
       return getStackTags(JSON.parse(json));
@@ -15835,14 +15839,16 @@ const deployStack = async (
 
   const changeSetType = await getChangeSetType(stackName);
 
-  const body = await step.group('Retrieving packaged template', () => {
+  const body = await step.group('Retrieving packaged template', async () => {
     if (templateBody) {
       return templateBody;
     }
-    return getTemplateBody({
+    const resolvedBody = await getTemplateBody({
       artifactName,
       filepath: templateFilePath,
     });
+
+    return resolvedBody;
   });
 
   step.startGroup(`Creating ChangeSet on stack: ${stackName}`);
