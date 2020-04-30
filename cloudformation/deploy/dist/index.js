@@ -15361,7 +15361,7 @@ const deployStack = async (
 
     step.debug(`Change Set Failed: "${reason}"`);
 
-    if (/no updates/i.test(reason)) {
+    if (/(didn't contain changes|no updates)/i.test(reason)) {
       return true;
     }
   }
