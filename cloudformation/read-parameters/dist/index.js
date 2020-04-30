@@ -11997,9 +11997,15 @@ const readParameters = async ({ pathPrefix }, step) => {
 
   await Promise.all(
     paths.map(async (path) => {
-      const { Parameters } = await ssm
+      let { Parameters } = await ssm
         .getParametersByPath({ Path: path, Recursive: true })
         .promise();
+
+      if (!Parameters || Parameters.length === 0) {
+        // try to get the parameter directly (incase it's not a prefix)
+        const response = await ssm.getParameters({ Names: [path] }).promise();
+        Parameters = response.Parameters;
+      }
 
       Parameters.forEach(({ Name: name, Value: value }) => {
         step.debug(`Setting: "${name}" = "${value}"`);
