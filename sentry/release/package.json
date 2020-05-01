@@ -1,0 +1,10 @@
+{
+  "name": "release",
+  "version": "0.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "ncc build run.js -o dist/main",
+    "postbuild": "ncc build post.js -o dist/post",
+    "start": "node run.js"
+  }
+}

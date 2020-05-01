@@ -1,4 +1,7 @@
 {
-  "packages": ["cloudformation/*"],
+  "packages": [
+    "sentry/*",
+    "cloudformation/*"
+  ],
   "version": "0.0.0"
 }

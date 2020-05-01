@@ -1,0 +1,31 @@
+name: 'Sentry: Release'
+description: |
+  This command will trigger a Sentry.io release.
+
+  See: https://docs.sentry.io/cli/releases
+inputs:
+  version:
+    type: string
+    required: true
+    description: |
+      The version to release. If this is a git ref, the preceeding
+      git value will be stripped.
+  environment:
+    type: string
+    description: |
+      If provided, the name of the environment that the deploy has been
+      released to. Such as "production", "staging", etc.
+  path:
+    type: string
+    description: |
+      A path to where sourcemaps can be found and uploaded from.
+  sentry-version:
+    type: string
+    default: '1.52.3'
+    description: |
+      The version of @sentry/cli to install
+runs:
+  using: 'node12'
+  main: 'dist/main/index.js'
+  post: 'dist/post/index.js'
+  post-if: success()
