@@ -16,6 +16,8 @@ const main = async () => {
 
     const version = getReleaseVersion(SENTRY_PROJECT, inputVersion);
 
+    core.setOutput('version', version);
+
     await core.group('Install @sentry/cli', () =>
       exec.exec('npm', ['i', '-g', `@sentry/cli@${sentryVersion}`])
     );
