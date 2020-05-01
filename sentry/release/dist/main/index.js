@@ -1024,7 +1024,6 @@ class ExecState extends events.EventEmitter {
 
 const exec = __webpack_require__(353);
 const core = __webpack_require__(852);
-const io = __webpack_require__(213);
 
 const { getReleaseVersion, getStartTimerKey } = __webpack_require__(545);
 
@@ -1042,24 +1041,17 @@ const main = async () => {
 
     core.setOutput('release', version);
 
-    await core.group('Install @sentry/cli', () =>
-      exec.exec('sudo', 'npm', ['i', '-g', `@sentry/cli@${sentryVersion}`])
-    );
-
-    const sentryPath = await io.which('sentry-cli', true);
-
-    if (!sentryPath) {
-      throw new Error(`"sentry-cli" not found in $PATH`);
-    }
+    const sentryCli = `@sentry/cli@${sentryVersion}`;
 
     // sentry-cli releases new "$VERSION"
     await core.group(`Create a new release (${version})`, () =>
-      exec.exec(`"${sentryPath}"`, ['releases', 'new', `"${version}"`])
+      exec.exec('npx', [sentryCli, 'releases', 'new', `"${version}"`])
     );
 
     // sentry-cli releases set-commits "$VERSION" --auto
     await core.group(`Attach commits to release`, () =>
-      exec.exec(`"${sentryPath}"`, [
+      exec.exec('npx', [
+        sentryCli,
         'releases',
         'set-commits',
         `"${version}"`,

@@ -62,7 +62,6 @@ module.exports = require("child_process");
 
 const exec = __webpack_require__(353);
 const core = __webpack_require__(852);
-const io = __webpack_require__(213);
 const { resolve: resolvePath } = __webpack_require__(622);
 
 const { getReleaseVersion, getStartTimerKey } = __webpack_require__(545);
@@ -70,15 +69,12 @@ const { getReleaseVersion, getStartTimerKey } = __webpack_require__(545);
 const { SENTRY_ORG, SENTRY_PROJECT } = process.env;
 
 const main = async () => {
+  const sentryVersion = core.getInput('sentry-version');
   const inputVersion = core.getInput('version');
   const environment = core.getInput('environment');
   const path = core.getInput('path');
 
-  const sentryPath = await io.which('sentry-cli', true);
-
-  if (!sentryPath) {
-    throw new Error(`"sentry-cli" not found in $PATH`);
-  }
+  const sentryCli = `@sentry/cli@${sentryVersion}`;
 
   const version = getReleaseVersion(SENTRY_PROJECT, inputVersion);
 
@@ -87,7 +83,8 @@ const main = async () => {
 
     await core.group('Upload sourcemaps', async () => {
       // sentry-cli releases files VERSION upload-sourcemaps /path/to/sourcemaps --rewrite
-      await exec.exec(`"${sentryPath}"`, [
+      await exec.exec('npx', [
+        sentryCli,
         'releases',
         'files',
         `"${version}"`,
@@ -97,7 +94,8 @@ const main = async () => {
       ]);
 
       // sentry-cli releases files VERSION list
-      await exec.exec(`"${sentryPath}"`, [
+      await exec.exec('npx', [
+        sentryCli,
         'releases',
         'files',
         `"${version}"`,
@@ -115,7 +113,8 @@ const main = async () => {
     const timeTaken = endTime - startTime;
 
     // sentry-cli releases deploys VERSION new -e ENVIRONMENT -t $((now-start))
-    await exec.exec(`"${sentryPath}"`, [
+    await exec.exec('npx', [
+      sentryCli,
       'releases',
       'deploys',
       `"${version}"`,
@@ -129,7 +128,7 @@ const main = async () => {
 
   // sentry-cli releases finalize "$VERSION"
   await core.group(`Finalize the release (${version})`, () =>
-    exec.exec(`"${sentryPath}"`, ['releases', 'finalize', `"${version}"`])
+    exec.exec('npx', [sentryCli, 'releases', 'finalize', `"${version}"`])
   );
 
   return true;
