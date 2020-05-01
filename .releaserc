@@ -35,7 +35,7 @@
     [
       "@semantic-release/git",
       {
-        "assets": ["README.md", "cloudformation/**/*"],
+        "assets": ["README.md", "sentry/**/*", "cloudformation/**/*"],
         "message": "chore: Updated files for version ${nextRelease.version} [skip ci]"
       }
     ]
