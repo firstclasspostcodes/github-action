@@ -1095,7 +1095,7 @@ main();
 /***/ (function(__unusedmodule, exports) {
 
 exports.getReleaseVersion = (project, version) => {
-  const releaseVersion = version.replace(/^.*git\/refs(\/(heads|tags)\/)?/, '');
+  const releaseVersion = version.replace(/^.*refs(\/([a-z]+)\/)?/, '');
   return `${project.toLowerCase()}-${releaseVersion}`;
 };
 
