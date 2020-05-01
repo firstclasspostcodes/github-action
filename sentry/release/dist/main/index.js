@@ -1043,7 +1043,7 @@ const main = async () => {
     core.setOutput('release', version);
 
     await core.group('Install @sentry/cli', () =>
-      exec.exec('npm', ['i', '-g', `@sentry/cli@${sentryVersion}`])
+      exec.exec('sudo', 'npm', ['i', '-g', `@sentry/cli@${sentryVersion}`])
     );
 
     const sentryPath = await io.which('sentry-cli', true);
