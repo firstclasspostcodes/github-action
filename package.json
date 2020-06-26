@@ -38,7 +38,7 @@
     "lerna": "^3.22.1",
     "lint-staged": "^10.2.11",
     "prettier": "^2.0.5",
-    "semantic-release": "^17.0.8"
+    "semantic-release": "^17.1.1"
   },
   "dependencies": {
     "@actions/artifact": "^0.3.2",
