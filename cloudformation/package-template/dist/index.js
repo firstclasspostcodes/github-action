@@ -19,7 +19,13 @@ module.exports =
 /******/ 		};
 /******/
 /******/ 		// Execute the module function
-/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/ 		var threw = true;
+/******/ 		try {
+/******/ 			modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/ 			threw = false;
+/******/ 		} finally {
+/******/ 			if(threw) delete installedModules[moduleId];
+/******/ 		}
 /******/
 /******/ 		// Flag the module as loaded
 /******/ 		module.l = true;
@@ -190,7 +196,7 @@ const upload_gzip_1 = __webpack_require__(43);
 const stat = util_1.promisify(fs.stat);
 class UploadHttpClient {
     constructor() {
-        this.uploadHttpManager = new http_manager_1.HttpManager(config_variables_1.getUploadFileConcurrency());
+        this.uploadHttpManager = new http_manager_1.HttpManager(config_variables_1.getUploadFileConcurrency(), '@actions/artifact-upload');
         this.statusReporter = new status_reporter_1.StatusReporter(10000);
     }
     /**
@@ -198,18 +204,23 @@ class UploadHttpClient {
      * @param {string} artifactName Name of the artifact being created
      * @returns The response from the Artifact Service if the file container was successfully created
      */
-    createArtifactInFileContainer(artifactName) {
+    createArtifactInFileContainer(artifactName, options) {
         return __awaiter(this, void 0, void 0, function* () {
             const parameters = {
                 Type: 'actions_storage',
                 Name: artifactName
             };
+            // calculate retention period
+            if (options && options.retentionDays) {
+                const maxRetentionStr = config_variables_1.getRetentionDays();
+                parameters.RetentionDays = utils_1.getProperRetention(options.retentionDays, maxRetentionStr);
+            }
             const data = JSON.stringify(parameters, null, 2);
             const artifactUrl = utils_1.getArtifactUrl();
             // use the first client from the httpManager, `keep-alive` is not used so the connection will close immediately
             const client = this.uploadHttpManager.getClient(0);
-            const requestOptions = utils_1.getUploadRequestOptions('application/json', false);
-            const rawResponse = yield client.post(artifactUrl, data, requestOptions);
+            const headers = utils_1.getUploadHeaders('application/json', false);
+            const rawResponse = yield client.post(artifactUrl, data, headers);
             const body = yield rawResponse.readBody();
             if (utils_1.isSuccessStatusCode(rawResponse.message.statusCode) && body) {
                 return JSON.parse(body);
@@ -321,21 +332,25 @@ class UploadHttpClient {
             // for creating a new GZip file, an in-memory buffer is used for compression
             if (totalFileSize < 65536) {
                 const buffer = yield upload_gzip_1.createGZipFileInBuffer(parameters.file);
-                let uploadStream;
+                //An open stream is needed in the event of a failure and we need to retry. If a NodeJS.ReadableStream is directly passed in,
+                // it will not properly get reset to the start of the stream if a chunk upload needs to be retried
+                let openUploadStream;
                 if (totalFileSize < buffer.byteLength) {
                     // compression did not help with reducing the size, use a readable stream from the original file for upload
-                    uploadStream = fs.createReadStream(parameters.file);
+                    openUploadStream = () => fs.createReadStream(parameters.file);
                     isGzip = false;
                     uploadFileSize = totalFileSize;
                 }
                 else {
                     // create a readable stream using a PassThrough stream that is both readable and writable
-                    const passThrough = new stream.PassThrough();
-                    passThrough.end(buffer);
-                    uploadStream = passThrough;
+                    openUploadStream = () => {
+                        const passThrough = new stream.PassThrough();
+                        passThrough.end(buffer);
+                        return passThrough;
+                    };
                     uploadFileSize = buffer.byteLength;
                 }
-                const result = yield this.uploadChunk(httpClientIndex, parameters.resourceUrl, uploadStream, 0, uploadFileSize - 1, uploadFileSize, isGzip, totalFileSize);
+                const result = yield this.uploadChunk(httpClientIndex, parameters.resourceUrl, openUploadStream, 0, uploadFileSize - 1, uploadFileSize, isGzip, totalFileSize);
                 if (!result) {
                     // chunk failed to upload
                     isUploadSuccessful = false;
@@ -377,7 +392,7 @@ class UploadHttpClient {
                         failedChunkSizes += chunkSize;
                         continue;
                     }
-                    const result = yield this.uploadChunk(httpClientIndex, parameters.resourceUrl, fs.createReadStream(uploadFilePath, {
+                    const result = yield this.uploadChunk(httpClientIndex, parameters.resourceUrl, () => fs.createReadStream(uploadFilePath, {
                         start,
                         end,
                         autoClose: false
@@ -407,7 +422,7 @@ class UploadHttpClient {
      * indicates a retryable status, we try to upload the chunk as well
      * @param {number} httpClientIndex The index of the httpClient being used to make all the necessary calls
      * @param {string} resourceUrl Url of the resource that the chunk will be uploaded to
-     * @param {NodeJS.ReadableStream} data Stream of the file that will be uploaded
+     * @param {NodeJS.ReadableStream} openStream Stream of the file that will be uploaded
      * @param {number} start Starting byte index of file that the chunk belongs to
      * @param {number} end Ending byte index of file that the chunk belongs to
      * @param {number} uploadFileSize Total size of the file in bytes that is being uploaded
@@ -415,13 +430,13 @@ class UploadHttpClient {
      * @param {number} totalFileSize Original total size of the file that is being uploaded
      * @returns if the chunk was successfully uploaded
      */
-    uploadChunk(httpClientIndex, resourceUrl, data, start, end, uploadFileSize, isGzip, totalFileSize) {
+    uploadChunk(httpClientIndex, resourceUrl, openStream, start, end, uploadFileSize, isGzip, totalFileSize) {
         return __awaiter(this, void 0, void 0, function* () {
             // prepare all the necessary headers before making any http call
-            const requestOptions = utils_1.getUploadRequestOptions('application/octet-stream', true, isGzip, totalFileSize, end - start + 1, utils_1.getContentRange(start, end, uploadFileSize));
+            const headers = utils_1.getUploadHeaders('application/octet-stream', true, isGzip, totalFileSize, end - start + 1, utils_1.getContentRange(start, end, uploadFileSize));
             const uploadChunkRequest = () => __awaiter(this, void 0, void 0, function* () {
                 const client = this.uploadHttpManager.getClient(httpClientIndex);
-                return yield client.sendStream('PUT', resourceUrl, data, requestOptions);
+                return yield client.sendStream('PUT', resourceUrl, openStream(), headers);
             });
             let retryCount = 0;
             const retryLimit = config_variables_1.getRetryLimit();
@@ -499,7 +514,7 @@ class UploadHttpClient {
      */
     patchArtifactSize(size, artifactName) {
         return __awaiter(this, void 0, void 0, function* () {
-            const requestOptions = utils_1.getUploadRequestOptions('application/json', false);
+            const headers = utils_1.getUploadHeaders('application/json', false);
             const resourceUrl = new url_1.URL(utils_1.getArtifactUrl());
             resourceUrl.searchParams.append('artifactName', artifactName);
             const parameters = { Size: size };
@@ -507,7 +522,7 @@ class UploadHttpClient {
             core.debug(`URL is ${resourceUrl.toString()}`);
             // use the first client from the httpManager, `keep-alive` is not used so the connection will close immediately
             const client = this.uploadHttpManager.getClient(0);
-            const response = yield client.patch(resourceUrl.toString(), data, requestOptions);
+            const response = yield client.patch(resourceUrl.toString(), data, headers);
             const body = yield response.readBody();
             if (utils_1.isSuccessStatusCode(response.message.statusCode)) {
                 core.debug(`Artifact ${artifactName} has been successfully uploaded, total size in bytes: ${size}`);
@@ -613,7 +628,7 @@ class DefaultArtifactClient {
             }
             else {
                 // Create an entry for the artifact in the file container
-                const response = yield uploadHttpClient.createArtifactInFileContainer(name);
+                const response = yield uploadHttpClient.createArtifactInFileContainer(name, options);
                 if (!response.fileContainerResourceUrl) {
                     core.debug(response.toString());
                     throw new Error('No URL provided by the Artifact Service to upload an artifact to');
@@ -633,7 +648,6 @@ class DefaultArtifactClient {
         });
     }
     downloadArtifact(name, path, options) {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             const downloadHttpClient = new download_http_client_1.DownloadHttpClient();
             const artifacts = yield downloadHttpClient.listArtifacts();
@@ -653,7 +667,7 @@ class DefaultArtifactClient {
             path = path_1.normalize(path);
             path = path_1.resolve(path);
             // During upload, empty directories are rejected by the remote server so there should be no artifacts that consist of only empty directories
-            const downloadSpecification = download_specification_1.getDownloadSpecification(name, items.value, path, ((_a = options) === null || _a === void 0 ? void 0 : _a.createArtifactFolder) || false);
+            const downloadSpecification = download_specification_1.getDownloadSpecification(name, items.value, path, (options === null || options === void 0 ? void 0 : options.createArtifactFolder) || false);
             if (downloadSpecification.filesToDownload.length === 0) {
                 core.info(`No downloadable files were found for the artifact: ${artifactToDownload.name}`);
             }
@@ -731,11 +745,12 @@ const utils_1 = __webpack_require__(969);
  * Used for managing http clients during either upload or download
  */
 class HttpManager {
-    constructor(clientCount) {
+    constructor(clientCount, userAgent) {
         if (clientCount < 1) {
             throw new Error('There must be at least one client');
         }
-        this.clients = new Array(clientCount).fill(utils_1.createHttpClient());
+        this.userAgent = userAgent;
+        this.clients = new Array(clientCount).fill(utils_1.createHttpClient(userAgent));
     }
     getClient(index) {
         return this.clients[index];
@@ -744,7 +759,7 @@ class HttpManager {
     // for more information see: https://github.com/actions/http-client/blob/04e5ad73cd3fd1f5610a32116b0759eddf6570d2/index.ts#L292
     disposeAndReplaceClient(index) {
         this.clients[index].dispose();
-        this.clients[index] = utils_1.createHttpClient();
+        this.clients[index] = utils_1.createHttpClient(this.userAgent);
     }
     disposeAndReplaceAllClients() {
         for (const [index] of this.clients.entries()) {
@@ -3662,7 +3677,7 @@ module.exports = globSync
 globSync.GlobSync = GlobSync
 
 var fs = __webpack_require__(747)
-var rp = __webpack_require__(589)
+var rp = __webpack_require__(984)
 var minimatch = __webpack_require__(904)
 var Minimatch = minimatch.Minimatch
 var Glob = __webpack_require__(606).Glob
@@ -4380,6 +4395,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const os = __importStar(__webpack_require__(87));
+const utils_1 = __webpack_require__(589);
 /**
  * Commands
  *
@@ -4433,28 +4449,14 @@ class Command {
         return cmdStr;
     }
 }
-/**
- * Sanitizes an input into a string so it can be passed into issueCommand safely
- * @param input input to sanitize into a string
- */
-function toCommandValue(input) {
-    if (input === null || input === undefined) {
-        return '';
-    }
-    else if (typeof input === 'string' || input instanceof String) {
-        return input;
-    }
-    return JSON.stringify(input);
-}
-exports.toCommandValue = toCommandValue;
 function escapeData(s) {
-    return toCommandValue(s)
+    return utils_1.toCommandValue(s)
         .replace(/%/g, '%25')
         .replace(/\r/g, '%0D')
         .replace(/\n/g, '%0A');
 }
 function escapeProperty(s) {
-    return toCommandValue(s)
+    return utils_1.toCommandValue(s)
         .replace(/%/g, '%25')
         .replace(/\r/g, '%0D')
         .replace(/\n/g, '%0A')
@@ -4474,75 +4476,28 @@ module.exports = __webpack_require__(849);
 /***/ }),
 
 /***/ 589:
-/***/ (function(module, __unusedexports, __webpack_require__) {
+/***/ (function(__unusedmodule, exports) {
 
-module.exports = realpath
-realpath.realpath = realpath
-realpath.sync = realpathSync
-realpath.realpathSync = realpathSync
-realpath.monkeypatch = monkeypatch
-realpath.unmonkeypatch = unmonkeypatch
+"use strict";
 
-var fs = __webpack_require__(747)
-var origRealpath = fs.realpath
-var origRealpathSync = fs.realpathSync
-
-var version = process.version
-var ok = /^v[0-5]\./.test(version)
-var old = __webpack_require__(380)
-
-function newError (er) {
-  return er && er.syscall === 'realpath' && (
-    er.code === 'ELOOP' ||
-    er.code === 'ENOMEM' ||
-    er.code === 'ENAMETOOLONG'
-  )
-}
-
-function realpath (p, cache, cb) {
-  if (ok) {
-    return origRealpath(p, cache, cb)
-  }
-
-  if (typeof cache === 'function') {
-    cb = cache
-    cache = null
-  }
-  origRealpath(p, cache, function (er, result) {
-    if (newError(er)) {
-      old.realpath(p, cache, cb)
-    } else {
-      cb(er, result)
+// We use any as a valid input type
+/* eslint-disable @typescript-eslint/no-explicit-any */
+Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * Sanitizes an input into a string so it can be passed into issueCommand safely
+ * @param input input to sanitize into a string
+ */
+function toCommandValue(input) {
+    if (input === null || input === undefined) {
+        return '';
     }
-  })
-}
-
-function realpathSync (p, cache) {
-  if (ok) {
-    return origRealpathSync(p, cache)
-  }
-
-  try {
-    return origRealpathSync(p, cache)
-  } catch (er) {
-    if (newError(er)) {
-      return old.realpathSync(p, cache)
-    } else {
-      throw er
+    else if (typeof input === 'string' || input instanceof String) {
+        return input;
     }
-  }
+    return JSON.stringify(input);
 }
-
-function monkeypatch () {
-  fs.realpath = realpath
-  fs.realpathSync = realpathSync
-}
-
-function unmonkeypatch () {
-  fs.realpath = origRealpath
-  fs.realpathSync = origRealpathSync
-}
-
+exports.toCommandValue = toCommandValue;
+//# sourceMappingURL=utils.js.map
 
 /***/ }),
 
@@ -4666,7 +4621,7 @@ module.exports = require("http");
 module.exports = glob
 
 var fs = __webpack_require__(747)
-var rp = __webpack_require__(589)
+var rp = __webpack_require__(984)
 var minimatch = __webpack_require__(904)
 var Minimatch = minimatch.Minimatch
 var inherits = __webpack_require__(536)
@@ -5923,7 +5878,7 @@ const http_manager_1 = __webpack_require__(140);
 const config_variables_1 = __webpack_require__(839);
 class DownloadHttpClient {
     constructor() {
-        this.downloadHttpManager = new http_manager_1.HttpManager(config_variables_1.getDownloadFileConcurrency());
+        this.downloadHttpManager = new http_manager_1.HttpManager(config_variables_1.getDownloadFileConcurrency(), '@actions/artifact-download');
         // downloads are usually significantly faster than uploads so display status information every second
         this.statusReporter = new status_reporter_1.StatusReporter(1000);
     }
@@ -5935,8 +5890,8 @@ class DownloadHttpClient {
             const artifactUrl = utils_1.getArtifactUrl();
             // use the first client from the httpManager, `keep-alive` is not used so the connection will close immediately
             const client = this.downloadHttpManager.getClient(0);
-            const requestOptions = utils_1.getDownloadRequestOptions('application/json');
-            const response = yield client.get(artifactUrl, requestOptions);
+            const headers = utils_1.getDownloadHeaders('application/json');
+            const response = yield client.get(artifactUrl, headers);
             const body = yield response.readBody();
             if (utils_1.isSuccessStatusCode(response.message.statusCode) && body) {
                 return JSON.parse(body);
@@ -5957,8 +5912,8 @@ class DownloadHttpClient {
             resourceUrl.searchParams.append('itemPath', artifactName);
             // use the first client from the httpManager, `keep-alive` is not used so the connection will close immediately
             const client = this.downloadHttpManager.getClient(0);
-            const requestOptions = utils_1.getDownloadRequestOptions('application/json');
-            const response = yield client.get(resourceUrl.toString(), requestOptions);
+            const headers = utils_1.getDownloadHeaders('application/json');
+            const response = yield client.get(resourceUrl.toString(), headers);
             const body = yield response.readBody();
             if (utils_1.isSuccessStatusCode(response.message.statusCode) && body) {
                 return JSON.parse(body);
@@ -6015,15 +5970,16 @@ class DownloadHttpClient {
             let retryCount = 0;
             const retryLimit = config_variables_1.getRetryLimit();
             const destinationStream = fs.createWriteStream(downloadPath);
-            const requestOptions = utils_1.getDownloadRequestOptions('application/json', true, true);
+            const headers = utils_1.getDownloadHeaders('application/json', true, true);
             // a single GET request is used to download a file
             const makeDownloadRequest = () => __awaiter(this, void 0, void 0, function* () {
                 const client = this.downloadHttpManager.getClient(httpClientIndex);
-                return yield client.get(artifactLocation, requestOptions);
+                return yield client.get(artifactLocation, headers);
             });
             // check the response headers to determine if the file was compressed using gzip
-            const isGzip = (headers) => {
-                return ('content-encoding' in headers && headers['content-encoding'] === 'gzip');
+            const isGzip = (incomingHeaders) => {
+                return ('content-encoding' in incomingHeaders &&
+                    incomingHeaders['content-encoding'] === 'gzip');
             };
             // Increments the current retry count and then checks if the retry limit has been reached
             // If there have been too many retries, fail so the download stops. If there is a retryAfterValue value provided,
@@ -6358,7 +6314,7 @@ exports.getUploadFileConcurrency = getUploadFileConcurrency;
 // When uploading large files that can't be uploaded with a single http call, this controls
 // the chunk size that is used during upload
 function getUploadChunkSize() {
-    return 4 * 1024 * 1024; // 4 MB Chunks
+    return 8 * 1024 * 1024; // 8 MB Chunks
 }
 exports.getUploadChunkSize = getUploadChunkSize;
 // The maximum number of retries that can be attempted before an upload or download fails
@@ -6414,6 +6370,10 @@ function getWorkSpaceDirectory() {
     return workspaceDirectory;
 }
 exports.getWorkSpaceDirectory = getWorkSpaceDirectory;
+function getRetentionDays() {
+    return process.env['GITHUB_RETENTION_DAYS'];
+}
+exports.getRetentionDays = getRetentionDays;
 //# sourceMappingURL=config-variables.js.map
 
 /***/ }),
@@ -6713,6 +6673,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const command_1 = __webpack_require__(558);
+const file_command_1 = __webpack_require__(936);
+const utils_1 = __webpack_require__(589);
 const os = __importStar(__webpack_require__(87));
 const path = __importStar(__webpack_require__(622));
 /**
@@ -6739,9 +6701,17 @@ var ExitCode;
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function exportVariable(name, val) {
-    const convertedVal = command_1.toCommandValue(val);
+    const convertedVal = utils_1.toCommandValue(val);
     process.env[name] = convertedVal;
-    command_1.issueCommand('set-env', { name }, convertedVal);
+    const filePath = process.env['GITHUB_ENV'] || '';
+    if (filePath) {
+        const delimiter = '_GitHubActionsFileCommandDelimeter_';
+        const commandValue = `${name}<<${delimiter}${os.EOL}${convertedVal}${os.EOL}${delimiter}`;
+        file_command_1.issueCommand('ENV', commandValue);
+    }
+    else {
+        command_1.issueCommand('set-env', { name }, convertedVal);
+    }
 }
 exports.exportVariable = exportVariable;
 /**
@@ -6757,7 +6727,13 @@ exports.setSecret = setSecret;
  * @param inputPath
  */
 function addPath(inputPath) {
-    command_1.issueCommand('add-path', {}, inputPath);
+    const filePath = process.env['GITHUB_PATH'] || '';
+    if (filePath) {
+        file_command_1.issueCommand('PATH', inputPath);
+    }
+    else {
+        command_1.issueCommand('add-path', {}, inputPath);
+    }
     process.env['PATH'] = `${inputPath}${path.delimiter}${process.env['PATH']}`;
 }
 exports.addPath = addPath;
@@ -8483,6 +8459,42 @@ function regExpEscape (s) {
 
 /***/ }),
 
+/***/ 936:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+// For internal use, subject to change.
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+// We use any as a valid input type
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const fs = __importStar(__webpack_require__(747));
+const os = __importStar(__webpack_require__(87));
+const utils_1 = __webpack_require__(589);
+function issueCommand(command, message) {
+    const filePath = process.env[`GITHUB_${command}`];
+    if (!filePath) {
+        throw new Error(`Unable to find environment variable for file command ${command}`);
+    }
+    if (!fs.existsSync(filePath)) {
+        throw new Error(`Missing file at path: ${filePath}`);
+    }
+    fs.appendFileSync(filePath, `${utils_1.toCommandValue(message)}${os.EOL}`, {
+        encoding: 'utf8'
+    });
+}
+exports.issueCommand = issueCommand;
+//# sourceMappingURL=file-command.js.map
+
+/***/ }),
+
 /***/ 969:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -8560,7 +8572,8 @@ function isRetryableStatusCode(statusCode) {
         http_client_1.HttpCodes.BadGateway,
         http_client_1.HttpCodes.ServiceUnavailable,
         http_client_1.HttpCodes.GatewayTimeout,
-        http_client_1.HttpCodes.TooManyRequests
+        http_client_1.HttpCodes.TooManyRequests,
+        413 // Payload Too Large
     ];
     return retryableStatusCodes.includes(statusCode);
 }
@@ -8607,9 +8620,9 @@ exports.getContentRange = getContentRange;
  * @param {boolean} isKeepAlive is the same connection being used to make multiple calls
  * @param {boolean} acceptGzip can we accept a gzip encoded response
  * @param {string} acceptType the type of content that we can accept
- * @returns appropriate request options to make a specific http call during artifact download
+ * @returns appropriate headers to make a specific http call during artifact download
  */
-function getDownloadRequestOptions(contentType, isKeepAlive, acceptGzip) {
+function getDownloadHeaders(contentType, isKeepAlive, acceptGzip) {
     const requestOptions = {};
     if (contentType) {
         requestOptions['Content-Type'] = contentType;
@@ -8630,7 +8643,7 @@ function getDownloadRequestOptions(contentType, isKeepAlive, acceptGzip) {
     }
     return requestOptions;
 }
-exports.getDownloadRequestOptions = getDownloadRequestOptions;
+exports.getDownloadHeaders = getDownloadHeaders;
 /**
  * Sets all the necessary headers when uploading an artifact
  * @param {string} contentType the type of content being uploaded
@@ -8639,9 +8652,9 @@ exports.getDownloadRequestOptions = getDownloadRequestOptions;
  * @param {number} uncompressedLength the original size of the content if something is being uploaded that has been compressed
  * @param {number} contentLength the length of the content that is being uploaded
  * @param {string} contentRange the range of the content that is being uploaded
- * @returns appropriate request options to make a specific http call during artifact upload
+ * @returns appropriate headers to make a specific http call during artifact upload
  */
-function getUploadRequestOptions(contentType, isKeepAlive, isGzip, uncompressedLength, contentLength, contentRange) {
+function getUploadHeaders(contentType, isKeepAlive, isGzip, uncompressedLength, contentLength, contentRange) {
     const requestOptions = {};
     requestOptions['Accept'] = `application/json;api-version=${getApiVersion()}`;
     if (contentType) {
@@ -8664,9 +8677,9 @@ function getUploadRequestOptions(contentType, isKeepAlive, isGzip, uncompressedL
     }
     return requestOptions;
 }
-exports.getUploadRequestOptions = getUploadRequestOptions;
-function createHttpClient() {
-    return new http_client_1.HttpClient('action/artifact', [
+exports.getUploadHeaders = getUploadHeaders;
+function createHttpClient(userAgent) {
+    return new http_client_1.HttpClient(userAgent, [
         new auth_1.BearerCredentialHandler(config_variables_1.getRuntimeToken())
     ]);
 }
@@ -8754,7 +8767,95 @@ function createEmptyFilesForArtifact(emptyFilesToCreate) {
     });
 }
 exports.createEmptyFilesForArtifact = createEmptyFilesForArtifact;
+function getProperRetention(retentionInput, retentionSetting) {
+    if (retentionInput < 0) {
+        throw new Error('Invalid retention, minimum value is 1.');
+    }
+    let retention = retentionInput;
+    if (retentionSetting) {
+        const maxRetention = parseInt(retentionSetting);
+        if (!isNaN(maxRetention) && maxRetention < retention) {
+            core_1.warning(`Retention days is greater than the max value allowed by the repository setting, reduce retention to ${maxRetention} days`);
+            retention = maxRetention;
+        }
+    }
+    return retention;
+}
+exports.getProperRetention = getProperRetention;
 //# sourceMappingURL=utils.js.map
+
+/***/ }),
+
+/***/ 984:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+module.exports = realpath
+realpath.realpath = realpath
+realpath.sync = realpathSync
+realpath.realpathSync = realpathSync
+realpath.monkeypatch = monkeypatch
+realpath.unmonkeypatch = unmonkeypatch
+
+var fs = __webpack_require__(747)
+var origRealpath = fs.realpath
+var origRealpathSync = fs.realpathSync
+
+var version = process.version
+var ok = /^v[0-5]\./.test(version)
+var old = __webpack_require__(380)
+
+function newError (er) {
+  return er && er.syscall === 'realpath' && (
+    er.code === 'ELOOP' ||
+    er.code === 'ENOMEM' ||
+    er.code === 'ENAMETOOLONG'
+  )
+}
+
+function realpath (p, cache, cb) {
+  if (ok) {
+    return origRealpath(p, cache, cb)
+  }
+
+  if (typeof cache === 'function') {
+    cb = cache
+    cache = null
+  }
+  origRealpath(p, cache, function (er, result) {
+    if (newError(er)) {
+      old.realpath(p, cache, cb)
+    } else {
+      cb(er, result)
+    }
+  })
+}
+
+function realpathSync (p, cache) {
+  if (ok) {
+    return origRealpathSync(p, cache)
+  }
+
+  try {
+    return origRealpathSync(p, cache)
+  } catch (er) {
+    if (newError(er)) {
+      return old.realpathSync(p, cache)
+    } else {
+      throw er
+    }
+  }
+}
+
+function monkeypatch () {
+  fs.realpath = realpath
+  fs.realpathSync = realpathSync
+}
+
+function unmonkeypatch () {
+  fs.realpath = origRealpath
+  fs.realpathSync = origRealpathSync
+}
+
 
 /***/ })
 

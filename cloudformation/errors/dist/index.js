@@ -19,7 +19,13 @@ module.exports =
 /******/ 		};
 /******/
 /******/ 		// Execute the module function
-/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/ 		var threw = true;
+/******/ 		try {
+/******/ 			modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/ 			threw = false;
+/******/ 		} finally {
+/******/ 			if(threw) delete installedModules[moduleId];
+/******/ 		}
 /******/
 /******/ 		// Flag the module as loaded
 /******/ 		module.l = true;
@@ -469,6 +475,8 @@ var AWS = __webpack_require__(216);
 var STS = __webpack_require__(477);
 var iniLoader = AWS.util.iniLoader;
 
+var ASSUME_ROLE_DEFAULT_REGION = 'us-east-1';
+
 /**
  * Represents credentials loaded from shared credentials file
  * (defaulting to ~/.aws/credentials or defined by the
@@ -536,9 +544,9 @@ AWS.SharedIniFileCredentials = AWS.util.inherit(AWS.Credentials, {
    *     failing to establish a connection with the server after
    *     `connectTimeout` milliseconds. This timeout has no effect once a socket
    *     connection has been established.
-   *   * **timeout** [Integer] &mdash; Sets the socket to timeout after timeout
-   *     milliseconds of inactivity on the socket. Defaults to two minutes
-   *     (120000).
+   *   * **timeout** [Integer] &mdash; The number of milliseconds a request can
+   *     take before automatically being terminated.
+   *     Defaults to two minutes (120000).
    */
   constructor: function SharedIniFileCredentials(options) {
     AWS.Credentials.call(this);
@@ -658,6 +666,27 @@ AWS.SharedIniFileCredentials = AWS.util.inherit(AWS.Credentials, {
     var mfaSerial = roleProfile['mfa_serial'];
     var sourceProfileName = roleProfile['source_profile'];
 
+    // From experimentation, the following behavior mimics the AWS CLI:
+    //
+    // 1. Use region from the profile if present.
+    // 2. Otherwise fall back to N. Virginia (global endpoint).
+    //
+    // It is necessary to do the fallback explicitly, because if
+    // 'AWS_STS_REGIONAL_ENDPOINTS=regional', the underlying STS client will
+    // otherwise throw an error if region is left 'undefined'.
+    //
+    // Experimentation shows that the AWS CLI (tested at version 1.18.136)
+    // ignores the following potential sources of a region for the purposes of
+    // this AssumeRole call:
+    //
+    // - The [default] profile
+    // - The AWS_REGION environment variable
+    //
+    // Ignoring the [default] profile for the purposes of AssumeRole is arguably
+    // a bug in the CLI since it does use the [default] region for service
+    // calls... but right now we're matching behavior of the other tool.
+    var profileRegion = roleProfile['region'] || ASSUME_ROLE_DEFAULT_REGION;
+
     if (!sourceProfileName) {
       throw AWS.util.error(
         new Error('source_profile is not set using profile ' + this.profile),
@@ -685,6 +714,7 @@ AWS.SharedIniFileCredentials = AWS.util.inherit(AWS.Credentials, {
     this.roleArn = roleArn;
     var sts = new STS({
       credentials: sourceCredentials,
+      region: profileRegion,
       httpOptions: this.httpOptions
     });
 
@@ -2834,7 +2864,7 @@ module.exports = {
 /***/ 103:
 /***/ (function(module) {
 
-module.exports = {"version":2,"waiters":{"StackExists":{"delay":5,"operation":"DescribeStacks","maxAttempts":20,"acceptors":[{"matcher":"status","expected":200,"state":"success"},{"matcher":"error","expected":"ValidationError","state":"retry"}]},"StackCreateComplete":{"delay":30,"operation":"DescribeStacks","maxAttempts":120,"description":"Wait until stack status is CREATE_COMPLETE.","acceptors":[{"argument":"Stacks[].StackStatus","expected":"CREATE_COMPLETE","matcher":"pathAll","state":"success"},{"argument":"Stacks[].StackStatus","expected":"CREATE_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"DELETE_COMPLETE","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"DELETE_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"ROLLBACK_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"ROLLBACK_COMPLETE","matcher":"pathAny","state":"failure"},{"expected":"ValidationError","matcher":"error","state":"failure"}]},"StackDeleteComplete":{"delay":30,"operation":"DescribeStacks","maxAttempts":120,"description":"Wait until stack status is DELETE_COMPLETE.","acceptors":[{"argument":"Stacks[].StackStatus","expected":"DELETE_COMPLETE","matcher":"pathAll","state":"success"},{"expected":"ValidationError","matcher":"error","state":"success"},{"argument":"Stacks[].StackStatus","expected":"DELETE_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"CREATE_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"ROLLBACK_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"UPDATE_ROLLBACK_IN_PROGRESS","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"UPDATE_ROLLBACK_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"UPDATE_ROLLBACK_COMPLETE","matcher":"pathAny","state":"failure"}]},"StackUpdateComplete":{"delay":30,"maxAttempts":120,"operation":"DescribeStacks","description":"Wait until stack status is UPDATE_COMPLETE.","acceptors":[{"argument":"Stacks[].StackStatus","expected":"UPDATE_COMPLETE","matcher":"pathAll","state":"success"},{"expected":"UPDATE_FAILED","matcher":"pathAny","state":"failure","argument":"Stacks[].StackStatus"},{"argument":"Stacks[].StackStatus","expected":"UPDATE_ROLLBACK_FAILED","matcher":"pathAny","state":"failure"},{"expected":"UPDATE_ROLLBACK_COMPLETE","matcher":"pathAny","state":"failure","argument":"Stacks[].StackStatus"},{"expected":"ValidationError","matcher":"error","state":"failure"}]},"StackImportComplete":{"delay":30,"maxAttempts":120,"operation":"DescribeStacks","description":"Wait until stack status is IMPORT_COMPLETE.","acceptors":[{"argument":"Stacks[].StackStatus","expected":"IMPORT_COMPLETE","matcher":"pathAll","state":"success"},{"expected":"ROLLBACK_COMPLETE","matcher":"pathAny","state":"failure","argument":"Stacks[].StackStatus"},{"expected":"ROLLBACK_FAILED","matcher":"pathAny","state":"failure","argument":"Stacks[].StackStatus"},{"argument":"Stacks[].StackStatus","expected":"IMPORT_ROLLBACK_IN_PROGRESS","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"IMPORT_ROLLBACK_FAILED","matcher":"pathAny","state":"failure"},{"expected":"IMPORT_ROLLBACK_COMPLETE","matcher":"pathAny","state":"failure","argument":"Stacks[].StackStatus"},{"expected":"ValidationError","matcher":"error","state":"failure"}]},"ChangeSetCreateComplete":{"delay":30,"operation":"DescribeChangeSet","maxAttempts":120,"description":"Wait until change set status is CREATE_COMPLETE.","acceptors":[{"argument":"Status","expected":"CREATE_COMPLETE","matcher":"path","state":"success"},{"argument":"Status","expected":"FAILED","matcher":"path","state":"failure"},{"expected":"ValidationError","matcher":"error","state":"failure"}]},"TypeRegistrationComplete":{"delay":30,"operation":"DescribeTypeRegistration","maxAttempts":120,"description":"Wait until type registration is COMPLETE.","acceptors":[{"argument":"ProgressStatus","expected":"COMPLETE","matcher":"path","state":"success"},{"argument":"ProgressStatus","expected":"FAILED","matcher":"path","state":"failure"}]}}};
+module.exports = {"version":2,"waiters":{"StackExists":{"delay":5,"operation":"DescribeStacks","maxAttempts":20,"acceptors":[{"matcher":"status","expected":200,"state":"success"},{"matcher":"error","expected":"ValidationError","state":"retry"}]},"StackCreateComplete":{"delay":30,"operation":"DescribeStacks","maxAttempts":120,"description":"Wait until stack status is CREATE_COMPLETE.","acceptors":[{"argument":"Stacks[].StackStatus","expected":"CREATE_COMPLETE","matcher":"pathAll","state":"success"},{"argument":"Stacks[].StackStatus","expected":"CREATE_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"DELETE_COMPLETE","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"DELETE_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"ROLLBACK_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"ROLLBACK_COMPLETE","matcher":"pathAny","state":"failure"},{"expected":"ValidationError","matcher":"error","state":"failure"}]},"StackDeleteComplete":{"delay":30,"operation":"DescribeStacks","maxAttempts":120,"description":"Wait until stack status is DELETE_COMPLETE.","acceptors":[{"argument":"Stacks[].StackStatus","expected":"DELETE_COMPLETE","matcher":"pathAll","state":"success"},{"expected":"ValidationError","matcher":"error","state":"success"},{"argument":"Stacks[].StackStatus","expected":"DELETE_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"CREATE_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"ROLLBACK_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"UPDATE_ROLLBACK_IN_PROGRESS","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"UPDATE_ROLLBACK_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"UPDATE_ROLLBACK_COMPLETE","matcher":"pathAny","state":"failure"}]},"StackUpdateComplete":{"delay":30,"maxAttempts":120,"operation":"DescribeStacks","description":"Wait until stack status is UPDATE_COMPLETE.","acceptors":[{"argument":"Stacks[].StackStatus","expected":"UPDATE_COMPLETE","matcher":"pathAll","state":"success"},{"expected":"UPDATE_FAILED","matcher":"pathAny","state":"failure","argument":"Stacks[].StackStatus"},{"argument":"Stacks[].StackStatus","expected":"UPDATE_ROLLBACK_FAILED","matcher":"pathAny","state":"failure"},{"expected":"UPDATE_ROLLBACK_COMPLETE","matcher":"pathAny","state":"failure","argument":"Stacks[].StackStatus"},{"expected":"ValidationError","matcher":"error","state":"failure"}]},"StackImportComplete":{"delay":30,"maxAttempts":120,"operation":"DescribeStacks","description":"Wait until stack status is IMPORT_COMPLETE.","acceptors":[{"argument":"Stacks[].StackStatus","expected":"IMPORT_COMPLETE","matcher":"pathAll","state":"success"},{"expected":"ROLLBACK_COMPLETE","matcher":"pathAny","state":"failure","argument":"Stacks[].StackStatus"},{"expected":"ROLLBACK_FAILED","matcher":"pathAny","state":"failure","argument":"Stacks[].StackStatus"},{"argument":"Stacks[].StackStatus","expected":"IMPORT_ROLLBACK_IN_PROGRESS","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"IMPORT_ROLLBACK_FAILED","matcher":"pathAny","state":"failure"},{"expected":"IMPORT_ROLLBACK_COMPLETE","matcher":"pathAny","state":"failure","argument":"Stacks[].StackStatus"},{"expected":"ValidationError","matcher":"error","state":"failure"}]},"StackRollbackComplete":{"delay":30,"operation":"DescribeStacks","maxAttempts":120,"description":"Wait until stack status is UPDATE_ROLLBACK_COMPLETE.","acceptors":[{"argument":"Stacks[].StackStatus","expected":"UPDATE_ROLLBACK_COMPLETE","matcher":"pathAll","state":"success"},{"argument":"Stacks[].StackStatus","expected":"UPDATE_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"UPDATE_ROLLBACK_FAILED","matcher":"pathAny","state":"failure"},{"argument":"Stacks[].StackStatus","expected":"DELETE_FAILED","matcher":"pathAny","state":"failure"},{"expected":"ValidationError","matcher":"error","state":"failure"}]},"ChangeSetCreateComplete":{"delay":30,"operation":"DescribeChangeSet","maxAttempts":120,"description":"Wait until change set status is CREATE_COMPLETE.","acceptors":[{"argument":"Status","expected":"CREATE_COMPLETE","matcher":"path","state":"success"},{"argument":"Status","expected":"FAILED","matcher":"path","state":"failure"},{"expected":"ValidationError","matcher":"error","state":"failure"}]},"TypeRegistrationComplete":{"delay":30,"operation":"DescribeTypeRegistration","maxAttempts":120,"description":"Wait until type registration is COMPLETE.","acceptors":[{"argument":"ProgressStatus","expected":"COMPLETE","matcher":"path","state":"success"},{"argument":"ProgressStatus","expected":"FAILED","matcher":"path","state":"failure"}]}}};
 
 /***/ }),
 
@@ -3400,9 +3430,15 @@ AWS.EventListeners = {
     });
 
     add('VALIDATE_REGION', 'validate', function VALIDATE_REGION(req) {
-      if (!req.service.config.region && !req.service.isGlobalEndpoint) {
-        req.response.error = AWS.util.error(new Error(),
-          {code: 'ConfigError', message: 'Missing region in config'});
+      if (!req.service.isGlobalEndpoint) {
+        var dnsHostRegex = new RegExp(/^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])$/);
+        if (!req.service.config.region) {
+          req.response.error = AWS.util.error(new Error(),
+            {code: 'ConfigError', message: 'Missing region in config'});
+        } else if (!dnsHostRegex.test(req.service.config.region)) {
+          req.response.error = AWS.util.error(new Error(),
+            {code: 'ConfigError', message: 'Invalid region in config'});
+        }
       }
     });
 
@@ -3531,7 +3567,7 @@ AWS.EventListeners = {
           var date = service.getSkewCorrectedDate();
           var SignerClass = service.getSignerClass(req);
           var signer = new SignerClass(req.httpRequest,
-            service.api.signingName || service.api.endpointPrefix,
+            service.getSigningName(),
             {
               signatureCache: service.config.signatureCache,
               operation: operation,
@@ -3800,7 +3836,13 @@ AWS.EventListeners = {
     add('EXTRACT_REQUEST_ID', 'extractError', AWS.util.extractRequestId);
 
     add('ENOTFOUND_ERROR', 'httpError', function ENOTFOUND_ERROR(err) {
-      if (err.code === 'NetworkingError' && err.errno === 'ENOTFOUND') {
+      function isDNSError(err) {
+        return err.errno === 'ENOTFOUND' ||
+          typeof err.errno === 'number' &&
+          typeof AWS.util.getSystemErrorName === 'function' &&
+          ['EAI_NONAME', 'EAI_NODATA'].indexOf(AWS.util.getSystemErrorName(err.errno) >= 0);
+      }
+      if (err.code === 'NetworkingError' && isDNSError(err)) {
         var message = 'Inaccessible host: `' + err.hostname +
           '\'. This service may not be available in the `' + err.region +
           '\' region.';
@@ -3823,6 +3865,9 @@ AWS.EventListeners = {
       function filterSensitiveLog(inputShape, shape) {
         if (!shape) {
           return shape;
+        }
+        if (inputShape.isSensitive) {
+          return '***SensitiveInformation***';
         }
         switch (inputShape.type) {
           case 'structure':
@@ -3848,11 +3893,7 @@ AWS.EventListeners = {
             });
             return map;
           default:
-            if (inputShape.isSensitive) {
-              return '***SensitiveInformation***';
-            } else {
-              return shape;
-            }
+            return shape;
         }
       }
 
@@ -4328,7 +4369,7 @@ AWS.util.update(AWS, {
   /**
    * @constant
    */
-  VERSION: '2.667.0',
+  VERSION: '2.791.0',
 
   /**
    * @api private
@@ -5174,6 +5215,14 @@ AWS.Service = inherit({
   },
 
   /**
+   * Gets the signing name for a given request
+   * @api private
+   */
+  getSigningName: function getSigningName() {
+    return this.api.signingName || this.api.endpointPrefix;
+  },
+
+  /**
    * Gets the signer class for a given request
    * @api private
    */
@@ -5731,8 +5780,9 @@ function extractError(resp) {
   if (httpResponse.body.length > 0) {
     try {
       var e = JSON.parse(httpResponse.body.toString());
-      if (e.__type || e.code) {
-        error.code = (e.__type || e.code).split('#').pop();
+      var code = e.__type || e.code || e.Code;
+      if (code) {
+        error.code = code.split('#').pop();
       }
       if (error.code === 'RequestEntityTooLarge') {
         error.message = 'Request body must be less than 1 MB';
@@ -7244,13 +7294,17 @@ var util = {
     var errCallback = function(err) {
       var maxRetries = options.maxRetries || 0;
       if (err && err.code === 'TimeoutError') err.retryable = true;
-      var delay = util.calculateRetryDelay(retryCount, options.retryDelayOptions, err);
-      if (err && err.retryable && retryCount < maxRetries && delay >= 0) {
-        retryCount++;
-        setTimeout(sendRequest, delay + (err.retryAfter || 0));
-      } else {
-        cb(err);
+
+      // Call `calculateRetryDelay()` only when relevant, see #3401
+      if (err && err.retryable && retryCount < maxRetries) {
+        var delay = util.calculateRetryDelay(retryCount, options.retryDelayOptions, err);
+        if (delay >= 0) {
+          retryCount++;
+          setTimeout(sendRequest, delay + (err.retryAfter || 0));
+          return;
+        }
       }
+      cb(err);
     };
 
     var sendRequest = function() {
@@ -7333,17 +7387,33 @@ var util = {
         filename: process.env[util.sharedConfigFileEnv]
       });
     }
-    var profilesFromCreds = iniLoader.loadFrom({
-      filename: filename ||
-        (process.env[util.configOptInEnv] && process.env[util.sharedCredentialsFileEnv])
-    });
+    var profilesFromCreds= {};
+    try {
+      var profilesFromCreds = iniLoader.loadFrom({
+        filename: filename ||
+          (process.env[util.configOptInEnv] && process.env[util.sharedCredentialsFileEnv])
+      });
+    } catch (error) {
+      // if using config, assume it is fully descriptive without a credentials file:
+      if (!process.env[util.configOptInEnv]) throw error;
+    }
     for (var i = 0, profileNames = Object.keys(profilesFromConfig); i < profileNames.length; i++) {
-      profiles[profileNames[i]] = profilesFromConfig[profileNames[i]];
+      profiles[profileNames[i]] = objectAssign(profiles[profileNames[i]] || {}, profilesFromConfig[profileNames[i]]);
     }
     for (var i = 0, profileNames = Object.keys(profilesFromCreds); i < profileNames.length; i++) {
-      profiles[profileNames[i]] = profilesFromCreds[profileNames[i]];
+      profiles[profileNames[i]] = objectAssign(profiles[profileNames[i]] || {}, profilesFromCreds[profileNames[i]]);
     }
     return profiles;
+
+    /**
+     * Roughly the semantics of `Object.assign(target, source)`
+     */
+    function objectAssign(target, source) {
+      for (var i = 0, keys = Object.keys(source); i < keys.length; i++) {
+        target[keys[i]] = source[keys[i]];
+      }
+      return target;
+    }
   },
 
   /**
@@ -7621,19 +7691,14 @@ function requiredDiscoverEndpoint(request, done) {
     }]);
     endpointRequest.send(function(err, data) {
       if (err) {
-        var errorParams = {
-          code: 'EndpointDiscoveryException',
-          message: 'Request cannot be fulfilled without specifying an endpoint',
-          retryable: false
-        };
-        request.response.error = util.error(err, errorParams);
+        request.response.error = util.error(err, { retryable: false });
         AWS.endpointCache.remove(cacheKey);
 
         //fail all the pending requests in batch
         if (requestQueue[cacheKeyStr]) {
           var pendingRequests = requestQueue[cacheKeyStr];
           util.arrayEach(pendingRequests, function(requestContext) {
-            requestContext.request.response.error = util.error(err, errorParams);
+            requestContext.request.response.error = util.error(err, { retryable: false });
             requestContext.callback();
           });
           delete requestQueue[cacheKeyStr];
@@ -7718,23 +7783,28 @@ function isFalsy(value) {
 }
 
 /**
- * If endpoint discovery should perform for this request when endpoint discovery is optional.
+ * If endpoint discovery should perform for this request when no operation requires endpoint
+ * discovery for the given service.
  * SDK performs config resolution in order like below:
- * 1. If turned on client configuration(default to off) then turn on endpoint discovery.
- * 2. If turned on in env AWS_ENABLE_ENDPOINT_DISCOVERY then turn on endpoint discovery.
- * 3. If turned on in shared ini config file with key 'endpoint_discovery_enabled', then
- *   turn on endpoint discovery.
+ * 1. If set in client configuration.
+ * 2. If set in env AWS_ENABLE_ENDPOINT_DISCOVERY.
+ * 3. If set in shared ini config file with key 'endpoint_discovery_enabled'.
  * @param [object] request request object.
+ * @returns [boolean|undefined] if endpoint discovery config is not set in any source, this
+ *  function returns undefined
  * @api private
  */
-function isEndpointDiscoveryEnabled(request) {
+function resolveEndpointDiscoveryConfig(request) {
   var service = request.service || {};
-  if (service.config.endpointDiscoveryEnabled === true) return true;
+  if (service.config.endpointDiscoveryEnabled !== undefined) {
+    return service.config.endpointDiscoveryEnabled;
+  }
 
   //shared ini file is only available in Node
   //not to check env in browser
-  if (util.isBrowser()) return false;
+  if (util.isBrowser()) return undefined;
 
+  // If any of recognized endpoint discovery config env is set
   for (var i = 0; i < endpointDiscoveryEnabledEnvs.length; i++) {
     var env = endpointDiscoveryEnabledEnvs[i];
     if (Object.prototype.hasOwnProperty.call(process.env, env)) {
@@ -7744,7 +7814,7 @@ function isEndpointDiscoveryEnabled(request) {
           message: 'environmental variable ' + env + ' cannot be set to nothing'
         });
       }
-      if (!isFalsy(process.env[env])) return true;
+      return !isFalsy(process.env[env]);
     }
   }
 
@@ -7765,9 +7835,9 @@ function isEndpointDiscoveryEnabled(request) {
         message: 'config file entry \'endpoint_discovery_enabled\' cannot be set to nothing'
       });
     }
-    if (!isFalsy(sharedFileConfig.endpoint_discovery_enabled)) return true;
+    return !isFalsy(sharedFileConfig.endpoint_discovery_enabled);
   }
-  return false;
+  return undefined;
 }
 
 /**
@@ -7782,27 +7852,35 @@ function discoverEndpoint(request, done) {
   var operations = service.api.operations || {};
   var operationModel = operations[request.operation];
   var isEndpointDiscoveryRequired = operationModel ? operationModel.endpointDiscoveryRequired : 'NULL';
-  var isEnabled = isEndpointDiscoveryEnabled(request);
-
-  if (!isEnabled) {
-    // Unless endpoint discovery is required, SDK will fallback to normal regional endpoints.
-    if (isEndpointDiscoveryRequired === 'REQUIRED') {
-      throw util.error(new Error(), {
-        code: 'ConfigurationException',
-        message: 'Endpoint Discovery is not enabled but this operation requires it.'
-      });
-    }
-    return done();
+  var isEnabled = resolveEndpointDiscoveryConfig(request);
+  var hasRequiredEndpointDiscovery = service.api.hasRequiredEndpointDiscovery;
+  if (isEnabled || hasRequiredEndpointDiscovery) {
+    // Once a customer enables endpoint discovery, the SDK should start appending
+    // the string endpoint-discovery to the user-agent on all requests.
+    request.httpRequest.appendToUserAgent('endpoint-discovery');
   }
-
-  request.httpRequest.appendToUserAgent('endpoint-discovery');
   switch (isEndpointDiscoveryRequired) {
     case 'OPTIONAL':
-      optionalDiscoverEndpoint(request);
-      request.addNamedListener('INVALIDATE_CACHED_ENDPOINTS', 'extractError', invalidateCachedEndpoints);
+      if (isEnabled || hasRequiredEndpointDiscovery) {
+        // For a given service; if at least one operation requires endpoint discovery then the SDK must enable endpoint discovery
+        // by default for all operations of that service, including operations where endpoint discovery is optional.
+        optionalDiscoverEndpoint(request);
+        request.addNamedListener('INVALIDATE_CACHED_ENDPOINTS', 'extractError', invalidateCachedEndpoints);
+      }
       done();
       break;
     case 'REQUIRED':
+      if (isEnabled === false) {
+        // For a given operation; if endpoint discovery is required and it has been disabled on the SDK client,
+        // then the SDK must return a clear and actionable exception.
+        request.response.error = util.error(new Error(), {
+          code: 'ConfigurationException',
+          message: 'Endpoint Discovery is disabled but ' + service.api.className + '.' + request.operation +
+                    '() requires it. Please check your configurations.'
+        });
+        done();
+        break;
+      }
       request.addNamedListener('INVALIDATE_CACHED_ENDPOINTS', 'extractError', invalidateCachedEndpoints);
       requiredDiscoverEndpoint(request, done);
       break;
@@ -8512,7 +8590,7 @@ module.exports = {"version":"2.0","metadata":{"apiVersion":"2011-06-15","endpoin
 /***/ 397:
 /***/ (function(module) {
 
-module.exports = {"pagination":{"DescribeStackEvents":{"input_token":"NextToken","output_token":"NextToken","result_key":"StackEvents"},"DescribeStackResourceDrifts":{"input_token":"NextToken","limit_key":"MaxResults","output_token":"NextToken"},"DescribeStackResources":{"result_key":"StackResources"},"DescribeStacks":{"input_token":"NextToken","output_token":"NextToken","result_key":"Stacks"},"ListExports":{"input_token":"NextToken","output_token":"NextToken","result_key":"Exports"},"ListImports":{"input_token":"NextToken","output_token":"NextToken","result_key":"Imports"},"ListStackResources":{"input_token":"NextToken","output_token":"NextToken","result_key":"StackResourceSummaries"},"ListStacks":{"input_token":"NextToken","output_token":"NextToken","result_key":"StackSummaries"},"ListTypeRegistrations":{"input_token":"NextToken","limit_key":"MaxResults","output_token":"NextToken"},"ListTypeVersions":{"input_token":"NextToken","limit_key":"MaxResults","output_token":"NextToken"},"ListTypes":{"input_token":"NextToken","limit_key":"MaxResults","output_token":"NextToken"}}};
+module.exports = {"pagination":{"DescribeAccountLimits":{"input_token":"NextToken","output_token":"NextToken","result_key":"AccountLimits"},"DescribeStackEvents":{"input_token":"NextToken","output_token":"NextToken","result_key":"StackEvents"},"DescribeStackResourceDrifts":{"input_token":"NextToken","limit_key":"MaxResults","output_token":"NextToken"},"DescribeStackResources":{"result_key":"StackResources"},"DescribeStacks":{"input_token":"NextToken","output_token":"NextToken","result_key":"Stacks"},"ListChangeSets":{"input_token":"NextToken","output_token":"NextToken","result_key":"Summaries"},"ListExports":{"input_token":"NextToken","output_token":"NextToken","result_key":"Exports"},"ListImports":{"input_token":"NextToken","output_token":"NextToken","result_key":"Imports"},"ListStackInstances":{"input_token":"NextToken","limit_key":"MaxResults","output_token":"NextToken","result_key":"Summaries"},"ListStackResources":{"input_token":"NextToken","output_token":"NextToken","result_key":"StackResourceSummaries"},"ListStackSetOperationResults":{"input_token":"NextToken","limit_key":"MaxResults","output_token":"NextToken","result_key":"Summaries"},"ListStackSetOperations":{"input_token":"NextToken","limit_key":"MaxResults","output_token":"NextToken","result_key":"Summaries"},"ListStackSets":{"input_token":"NextToken","limit_key":"MaxResults","output_token":"NextToken","result_key":"Summaries"},"ListStacks":{"input_token":"NextToken","output_token":"NextToken","result_key":"StackSummaries"},"ListTypeRegistrations":{"input_token":"NextToken","limit_key":"MaxResults","output_token":"NextToken"},"ListTypeVersions":{"input_token":"NextToken","limit_key":"MaxResults","output_token":"NextToken"},"ListTypes":{"input_token":"NextToken","limit_key":"MaxResults","output_token":"NextToken"}}};
 
 /***/ }),
 
@@ -9657,7 +9735,7 @@ var PromisesDependency;
  *       retry count and error and returns the amount of time to delay in
  *       milliseconds. If the result is a non-zero negative value, no further
  *       retry attempts will be made. The `base` option will be ignored if this
- *       option is supplied.
+ *       option is supplied. The function is only called for retryable errors.
  *
  * @!attribute httpOptions
  *   @return [map] A set of options to pass to the low-level HTTP request.
@@ -9673,9 +9751,9 @@ var PromisesDependency;
  *       failing to establish a connection with the server after
  *       `connectTimeout` milliseconds. This timeout has no effect once a socket
  *       connection has been established.
- *     * **timeout** [Integer] &mdash; Sets the socket to timeout after timeout
- *       milliseconds of inactivity on the socket. Defaults to two minutes
- *       (120000)
+ *     * **timeout** [Integer] &mdash; The number of milliseconds a request can
+ *       take before automatically being terminated.
+ *       Defaults to two minutes (120000).
  *     * **xhrAsync** [Boolean] &mdash; Whether the SDK will send asynchronous
  *       HTTP requests. Used in the browser environment only. Set to false to
  *       send requests synchronously. Defaults to true (async on).
@@ -9704,9 +9782,13 @@ var PromisesDependency;
  *     Defaults to `true`.
  *
  * @!attribute endpointDiscoveryEnabled
- *   @return [Boolean] whether to enable endpoint discovery for operations that
- *     allow optionally using an endpoint returned by the service.
- *     Defaults to 'false'
+ *   @return [Boolean|undefined] whether to call operations with endpoints
+ *     given by service dynamically. Setting this config to `true` will enable
+ *     endpoint discovery for all applicable operations. Setting it to `false`
+ *     will explicitly disable endpoint discovery even though operations that
+ *     require endpoint discovery will presumably fail. Leaving it to
+ *     `undefined` means SDK only do endpoint discovery when it's required.
+ *     Defaults to `undefined`
  *
  * @!attribute endpointCacheSize
  *   @return [Number] the size of the global cache storing endpoints from endpoint
@@ -9806,7 +9888,7 @@ AWS.Config = AWS.util.inherit({
    *     retry count and error and returns the amount of time to delay in
    *     milliseconds. If the result is a non-zero negative value, no further
    *     retry attempts will be made. The `base` option will be ignored if this
-   *     option is supplied.
+   *     option is supplied. The function is only called for retryable errors.
    * @option options httpOptions [map] A set of options to pass to the low-level
    *   HTTP request. Currently supported options are:
    *
@@ -9859,10 +9941,13 @@ AWS.Config = AWS.util.inherit({
    *   S3 Transfer Acceleration endpoint with the S3 service. Default: `false`.
    * @option options clientSideMonitoring [Boolean] whether to collect and
    *   publish this client's performance metrics of all its API requests.
-   * @option options endpointDiscoveryEnabled [Boolean] whether to enable endpoint
-   *   discovery for operations that allow optionally using an endpoint returned by
-   *   the service.
-   *   Defaults to 'false'
+   * @option options endpointDiscoveryEnabled [Boolean|undefined] whether to
+   *   call operations with endpoints given by service dynamically. Setting this
+   * config to `true` will enable endpoint discovery for all applicable operations.
+   *   Setting it to `false` will explicitly disable endpoint discovery even though
+   *   operations that require endpoint discovery will presumably fail. Leaving it
+   *   to `undefined` means SDK will only do endpoint discovery when it's required.
+   *   Defaults to `undefined`
    * @option options endpointCacheSize [Number] the size of the global cache storing
    *   endpoints from endpoint discovery operations. Once endpoint cache is created,
    *   updating this setting cannot change existing cache size.
@@ -10093,7 +10178,7 @@ AWS.Config = AWS.util.inherit({
     retryDelayOptions: {},
     useAccelerateEndpoint: false,
     clientSideMonitoring: false,
-    endpointDiscoveryEnabled: false,
+    endpointDiscoveryEnabled: undefined,
     endpointCacheSize: 1000,
     hostPrefixEnabled: true,
     stsRegionalEndpoints: 'legacy'
@@ -11916,6 +12001,10 @@ __webpack_require__(442);
  *   maxRetries: 10, // retry 10 times
  *   retryDelayOptions: { base: 200 } // see AWS.Config for information
  * });
+ *
+ * If your requests are timing out in connecting to the metadata service, such
+ * as when testing on a development machine, you can use the connectTimeout
+ * option, specified in milliseconds, which also defaults to 1 second.
  * ```
  *
  * @see AWS.Config.retryDelayOptions
@@ -11931,7 +12020,9 @@ AWS.EC2MetadataCredentials = AWS.util.inherit(AWS.Credentials, {
       {maxRetries: this.defaultMaxRetries}, options);
     if (!options.httpOptions) options.httpOptions = {};
     options.httpOptions = AWS.util.merge(
-      {timeout: this.defaultTimeout}, options.httpOptions);
+      {timeout: this.defaultTimeout,
+        connectTimeout: this.defaultConnectTimeout},
+       options.httpOptions);
 
     this.metadataService = new AWS.MetadataService(options);
     this.metadata = {};
@@ -11941,6 +12032,11 @@ AWS.EC2MetadataCredentials = AWS.util.inherit(AWS.Credentials, {
    * @api private
    */
   defaultTimeout: 1000,
+
+   /**
+   * @api private
+   */
+  defaultConnectTimeout: 1000,
 
   /**
    * @api private
@@ -12060,6 +12156,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const os = __importStar(__webpack_require__(87));
+const utils_1 = __webpack_require__(589);
 /**
  * Commands
  *
@@ -12113,28 +12210,14 @@ class Command {
         return cmdStr;
     }
 }
-/**
- * Sanitizes an input into a string so it can be passed into issueCommand safely
- * @param input input to sanitize into a string
- */
-function toCommandValue(input) {
-    if (input === null || input === undefined) {
-        return '';
-    }
-    else if (typeof input === 'string' || input instanceof String) {
-        return input;
-    }
-    return JSON.stringify(input);
-}
-exports.toCommandValue = toCommandValue;
 function escapeData(s) {
-    return toCommandValue(s)
+    return utils_1.toCommandValue(s)
         .replace(/%/g, '%25')
         .replace(/\r/g, '%0D')
         .replace(/\n/g, '%0A');
 }
 function escapeProperty(s) {
-    return toCommandValue(s)
+    return utils_1.toCommandValue(s)
         .replace(/%/g, '%25')
         .replace(/\r/g, '%0D')
         .replace(/\n/g, '%0A')
@@ -12350,6 +12433,32 @@ module.exports = {
     Publisher: Publisher
 };
 
+
+/***/ }),
+
+/***/ 589:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+// We use any as a valid input type
+/* eslint-disable @typescript-eslint/no-explicit-any */
+Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * Sanitizes an input into a string so it can be passed into issueCommand safely
+ * @param input input to sanitize into a string
+ */
+function toCommandValue(input) {
+    if (input === null || input === undefined) {
+        return '';
+    }
+    else if (typeof input === 'string' || input instanceof String) {
+        return input;
+    }
+    return JSON.stringify(input);
+}
+exports.toCommandValue = toCommandValue;
+//# sourceMappingURL=utils.js.map
 
 /***/ }),
 
@@ -13138,8 +13247,13 @@ AWS.Request = inherit({
     var region = service.config.region;
     var customUserAgent = service.config.customUserAgent;
 
-    // global endpoints sign as us-east-1
-    if (service.isGlobalEndpoint) region = 'us-east-1';
+    if (service.isGlobalEndpoint) {
+      if (service.signingRegion) {
+        region = service.signingRegion;
+      } else {
+        region = 'us-east-1';
+      }
+    }
 
     this.domain = domain && domain.active;
     this.service = service;
@@ -13605,7 +13719,7 @@ AWS.Request.addPromisesToClass = function addPromisesToClass(PromiseDependency) 
         if (resp.error) {
           reject(resp.error);
         } else {
-          // define $response property so that it is not enumberable
+          // define $response property so that it is not enumerable
           // this prevents circular reference errors when stringifying the JSON object
           resolve(Object.defineProperty(
             resp.data || {},
@@ -14548,11 +14662,17 @@ function configureEndpoint(service) {
       // set dualstack endpoint
       if (service.config.useDualstack && util.isDualstackAvailable(service)) {
         config = util.copy(config);
-        config.endpoint = '{service}.dualstack.{region}.amazonaws.com';
+        config.endpoint = config.endpoint.replace(
+          /{service}\.({region}\.)?/,
+          '{service}.dualstack.{region}.'
+        );
       }
 
       // set global endpoint
       service.isGlobalEndpoint = !!config.globalEndpoint;
+      if (config.signingRegion) {
+        service.signingRegion = config.signingRegion;
+      }
 
       // signature version
       if (!config.signatureVersion) config.signatureVersion = 'v4';
@@ -15513,6 +15633,7 @@ util.clientSideMonitoring = {
   configProvider: __webpack_require__(428),
 };
 util.iniLoader = __webpack_require__(808).iniLoader;
+util.getSystemErrorName = __webpack_require__(669).getSystemErrorName;
 
 var AWS;
 
@@ -15750,7 +15871,7 @@ function parseUnknown(xml) {
 
   // empty object
   var keys = Object.keys(xml), i;
-  if (keys.length === 0 || keys === ['$']) {
+  if (keys.length === 0 || (keys.length === 1 && keys[0] === '$')) {
     return {};
   }
 
@@ -18695,8 +18816,8 @@ function signedUrlSigner(request) {
   var auth = request.httpRequest.headers['Authorization'].split(' ');
   if (auth[0] === 'AWS') {
     auth = auth[1].split(':');
-    queryParams['AWSAccessKeyId'] = auth[0];
-    queryParams['Signature'] = auth[1];
+    queryParams['Signature'] = auth.pop();
+    queryParams['AWSAccessKeyId'] = auth.join(':');
 
     AWS.util.each(request.httpRequest.headers, function (key, value) {
       if (key === expiresHeader) key = 'Expires';
@@ -19006,6 +19127,13 @@ function Api(api, options) {
     if (operation.endpointoperation === true) {
       property(self, 'endpointOperation', util.string.lowerFirst(name));
     }
+    if (operation.endpointdiscovery && !self.hasRequiredEndpointDiscovery) {
+      property(
+        self,
+        'hasRequiredEndpointDiscovery',
+        operation.endpointdiscovery.required === true
+      );
+    }
   }
 
   property(this, 'operations', new Collection(api.operations, options, function(name, operation) {
@@ -19138,6 +19266,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const command_1 = __webpack_require__(558);
+const file_command_1 = __webpack_require__(936);
+const utils_1 = __webpack_require__(589);
 const os = __importStar(__webpack_require__(87));
 const path = __importStar(__webpack_require__(622));
 /**
@@ -19164,9 +19294,17 @@ var ExitCode;
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function exportVariable(name, val) {
-    const convertedVal = command_1.toCommandValue(val);
+    const convertedVal = utils_1.toCommandValue(val);
     process.env[name] = convertedVal;
-    command_1.issueCommand('set-env', { name }, convertedVal);
+    const filePath = process.env['GITHUB_ENV'] || '';
+    if (filePath) {
+        const delimiter = '_GitHubActionsFileCommandDelimeter_';
+        const commandValue = `${name}<<${delimiter}${os.EOL}${convertedVal}${os.EOL}${delimiter}`;
+        file_command_1.issueCommand('ENV', commandValue);
+    }
+    else {
+        command_1.issueCommand('set-env', { name }, convertedVal);
+    }
 }
 exports.exportVariable = exportVariable;
 /**
@@ -19182,7 +19320,13 @@ exports.setSecret = setSecret;
  * @param inputPath
  */
 function addPath(inputPath) {
-    command_1.issueCommand('add-path', {}, inputPath);
+    const filePath = process.env['GITHUB_PATH'] || '';
+    if (filePath) {
+        file_command_1.issueCommand('PATH', inputPath);
+    }
+    else {
+        command_1.issueCommand('add-path', {}, inputPath);
+    }
     process.env['PATH'] = `${inputPath}${path.delimiter}${process.env['PATH']}`;
 }
 exports.addPath = addPath;
@@ -19899,7 +20043,7 @@ __webpack_require__(817);
 /***/ 871:
 /***/ (function(module) {
 
-module.exports = {"rules":{"*/*":{"endpoint":"{service}.{region}.amazonaws.com"},"cn-*/*":{"endpoint":"{service}.{region}.amazonaws.com.cn"},"us-iso-*/*":{"endpoint":"{service}.{region}.c2s.ic.gov"},"us-isob-*/*":{"endpoint":"{service}.{region}.sc2s.sgov.gov"},"*/budgets":"globalSSL","*/cloudfront":"globalSSL","*/iam":"globalSSL","*/sts":"globalSSL","*/importexport":{"endpoint":"{service}.amazonaws.com","signatureVersion":"v2","globalEndpoint":true},"*/route53":{"endpoint":"https://{service}.amazonaws.com","signatureVersion":"v3https","globalEndpoint":true},"*/waf":"globalSSL","us-gov-*/iam":"globalGovCloud","us-gov-*/sts":{"endpoint":"{service}.{region}.amazonaws.com"},"us-gov-west-1/s3":"s3signature","us-west-1/s3":"s3signature","us-west-2/s3":"s3signature","eu-west-1/s3":"s3signature","ap-southeast-1/s3":"s3signature","ap-southeast-2/s3":"s3signature","ap-northeast-1/s3":"s3signature","sa-east-1/s3":"s3signature","us-east-1/s3":{"endpoint":"{service}.amazonaws.com","signatureVersion":"s3"},"us-east-1/sdb":{"endpoint":"{service}.amazonaws.com","signatureVersion":"v2"},"*/sdb":{"endpoint":"{service}.{region}.amazonaws.com","signatureVersion":"v2"}},"patterns":{"globalSSL":{"endpoint":"https://{service}.amazonaws.com","globalEndpoint":true},"globalGovCloud":{"endpoint":"{service}.us-gov.amazonaws.com"},"s3signature":{"endpoint":"{service}.{region}.amazonaws.com","signatureVersion":"s3"}}};
+module.exports = {"rules":{"*/*":{"endpoint":"{service}.{region}.amazonaws.com"},"cn-*/*":{"endpoint":"{service}.{region}.amazonaws.com.cn"},"us-iso-*/*":{"endpoint":"{service}.{region}.c2s.ic.gov"},"us-isob-*/*":{"endpoint":"{service}.{region}.sc2s.sgov.gov"},"*/budgets":"globalSSL","*/cloudfront":"globalSSL","*/sts":"globalSSL","*/importexport":{"endpoint":"{service}.amazonaws.com","signatureVersion":"v2","globalEndpoint":true},"*/route53":"globalSSL","cn-*/route53":{"endpoint":"{service}.amazonaws.com.cn","globalEndpoint":true,"signingRegion":"cn-northwest-1"},"us-gov-*/route53":"globalGovCloud","*/waf":"globalSSL","*/iam":"globalSSL","cn-*/iam":{"endpoint":"{service}.cn-north-1.amazonaws.com.cn","globalEndpoint":true,"signingRegion":"cn-north-1"},"us-gov-*/iam":"globalGovCloud","us-gov-*/sts":{"endpoint":"{service}.{region}.amazonaws.com"},"us-gov-west-1/s3":"s3signature","us-west-1/s3":"s3signature","us-west-2/s3":"s3signature","eu-west-1/s3":"s3signature","ap-southeast-1/s3":"s3signature","ap-southeast-2/s3":"s3signature","ap-northeast-1/s3":"s3signature","sa-east-1/s3":"s3signature","us-east-1/s3":{"endpoint":"{service}.amazonaws.com","signatureVersion":"s3"},"us-east-1/sdb":{"endpoint":"{service}.amazonaws.com","signatureVersion":"v2"},"*/sdb":{"endpoint":"{service}.{region}.amazonaws.com","signatureVersion":"v2"}},"patterns":{"globalSSL":{"endpoint":"https://{service}.amazonaws.com","globalEndpoint":true,"signingRegion":"us-east-1"},"globalGovCloud":{"endpoint":"{service}.us-gov.amazonaws.com","globalEndpoint":true,"signingRegion":"us-gov-west-1"},"s3signature":{"endpoint":"{service}.{region}.amazonaws.com","signatureVersion":"s3"}}};
 
 /***/ }),
 
@@ -20076,14 +20220,50 @@ module.exports = {"rules":{"*/*":{"endpoint":"{service}.{region}.amazonaws.com"}
 /***/ 894:
 /***/ (function(module) {
 
-module.exports = {"acm":{"name":"ACM","cors":true},"apigateway":{"name":"APIGateway","cors":true},"applicationautoscaling":{"prefix":"application-autoscaling","name":"ApplicationAutoScaling","cors":true},"appstream":{"name":"AppStream"},"autoscaling":{"name":"AutoScaling","cors":true},"batch":{"name":"Batch"},"budgets":{"name":"Budgets"},"clouddirectory":{"name":"CloudDirectory","versions":["2016-05-10*"]},"cloudformation":{"name":"CloudFormation","cors":true},"cloudfront":{"name":"CloudFront","versions":["2013-05-12*","2013-11-11*","2014-05-31*","2014-10-21*","2014-11-06*","2015-04-17*","2015-07-27*","2015-09-17*","2016-01-13*","2016-01-28*","2016-08-01*","2016-08-20*","2016-09-07*","2016-09-29*","2016-11-25*","2017-03-25*","2017-10-30*","2018-06-18*","2018-11-05*"],"cors":true},"cloudhsm":{"name":"CloudHSM","cors":true},"cloudsearch":{"name":"CloudSearch"},"cloudsearchdomain":{"name":"CloudSearchDomain"},"cloudtrail":{"name":"CloudTrail","cors":true},"cloudwatch":{"prefix":"monitoring","name":"CloudWatch","cors":true},"cloudwatchevents":{"prefix":"events","name":"CloudWatchEvents","versions":["2014-02-03*"],"cors":true},"cloudwatchlogs":{"prefix":"logs","name":"CloudWatchLogs","cors":true},"codebuild":{"name":"CodeBuild","cors":true},"codecommit":{"name":"CodeCommit","cors":true},"codedeploy":{"name":"CodeDeploy","cors":true},"codepipeline":{"name":"CodePipeline","cors":true},"cognitoidentity":{"prefix":"cognito-identity","name":"CognitoIdentity","cors":true},"cognitoidentityserviceprovider":{"prefix":"cognito-idp","name":"CognitoIdentityServiceProvider","cors":true},"cognitosync":{"prefix":"cognito-sync","name":"CognitoSync","cors":true},"configservice":{"prefix":"config","name":"ConfigService","cors":true},"cur":{"name":"CUR","cors":true},"datapipeline":{"name":"DataPipeline"},"devicefarm":{"name":"DeviceFarm","cors":true},"directconnect":{"name":"DirectConnect","cors":true},"directoryservice":{"prefix":"ds","name":"DirectoryService"},"discovery":{"name":"Discovery"},"dms":{"name":"DMS"},"dynamodb":{"name":"DynamoDB","cors":true},"dynamodbstreams":{"prefix":"streams.dynamodb","name":"DynamoDBStreams","cors":true},"ec2":{"name":"EC2","versions":["2013-06-15*","2013-10-15*","2014-02-01*","2014-05-01*","2014-06-15*","2014-09-01*","2014-10-01*","2015-03-01*","2015-04-15*","2015-10-01*","2016-04-01*","2016-09-15*"],"cors":true},"ecr":{"name":"ECR","cors":true},"ecs":{"name":"ECS","cors":true},"efs":{"prefix":"elasticfilesystem","name":"EFS","cors":true},"elasticache":{"name":"ElastiCache","versions":["2012-11-15*","2014-03-24*","2014-07-15*","2014-09-30*"],"cors":true},"elasticbeanstalk":{"name":"ElasticBeanstalk","cors":true},"elb":{"prefix":"elasticloadbalancing","name":"ELB","cors":true},"elbv2":{"prefix":"elasticloadbalancingv2","name":"ELBv2","cors":true},"emr":{"prefix":"elasticmapreduce","name":"EMR","cors":true},"es":{"name":"ES"},"elastictranscoder":{"name":"ElasticTranscoder","cors":true},"firehose":{"name":"Firehose","cors":true},"gamelift":{"name":"GameLift","cors":true},"glacier":{"name":"Glacier"},"health":{"name":"Health"},"iam":{"name":"IAM","cors":true},"importexport":{"name":"ImportExport"},"inspector":{"name":"Inspector","versions":["2015-08-18*"],"cors":true},"iot":{"name":"Iot","cors":true},"iotdata":{"prefix":"iot-data","name":"IotData","cors":true},"kinesis":{"name":"Kinesis","cors":true},"kinesisanalytics":{"name":"KinesisAnalytics"},"kms":{"name":"KMS","cors":true},"lambda":{"name":"Lambda","cors":true},"lexruntime":{"prefix":"runtime.lex","name":"LexRuntime","cors":true},"lightsail":{"name":"Lightsail"},"machinelearning":{"name":"MachineLearning","cors":true},"marketplacecommerceanalytics":{"name":"MarketplaceCommerceAnalytics","cors":true},"marketplacemetering":{"prefix":"meteringmarketplace","name":"MarketplaceMetering"},"mturk":{"prefix":"mturk-requester","name":"MTurk","cors":true},"mobileanalytics":{"name":"MobileAnalytics","cors":true},"opsworks":{"name":"OpsWorks","cors":true},"opsworkscm":{"name":"OpsWorksCM"},"organizations":{"name":"Organizations"},"pinpoint":{"name":"Pinpoint"},"polly":{"name":"Polly","cors":true},"rds":{"name":"RDS","versions":["2014-09-01*"],"cors":true},"redshift":{"name":"Redshift","cors":true},"rekognition":{"name":"Rekognition","cors":true},"resourcegroupstaggingapi":{"name":"ResourceGroupsTaggingAPI"},"route53":{"name":"Route53","cors":true},"route53domains":{"name":"Route53Domains","cors":true},"s3":{"name":"S3","dualstackAvailable":true,"cors":true},"s3control":{"name":"S3Control","dualstackAvailable":true,"xmlNoDefaultLists":true},"servicecatalog":{"name":"ServiceCatalog","cors":true},"ses":{"prefix":"email","name":"SES","cors":true},"shield":{"name":"Shield"},"simpledb":{"prefix":"sdb","name":"SimpleDB"},"sms":{"name":"SMS"},"snowball":{"name":"Snowball"},"sns":{"name":"SNS","cors":true},"sqs":{"name":"SQS","cors":true},"ssm":{"name":"SSM","cors":true},"storagegateway":{"name":"StorageGateway","cors":true},"stepfunctions":{"prefix":"states","name":"StepFunctions"},"sts":{"name":"STS","cors":true},"support":{"name":"Support"},"swf":{"name":"SWF"},"xray":{"name":"XRay","cors":true},"waf":{"name":"WAF","cors":true},"wafregional":{"prefix":"waf-regional","name":"WAFRegional"},"workdocs":{"name":"WorkDocs","cors":true},"workspaces":{"name":"WorkSpaces"},"codestar":{"name":"CodeStar"},"lexmodelbuildingservice":{"prefix":"lex-models","name":"LexModelBuildingService","cors":true},"marketplaceentitlementservice":{"prefix":"entitlement.marketplace","name":"MarketplaceEntitlementService"},"athena":{"name":"Athena"},"greengrass":{"name":"Greengrass"},"dax":{"name":"DAX"},"migrationhub":{"prefix":"AWSMigrationHub","name":"MigrationHub"},"cloudhsmv2":{"name":"CloudHSMV2"},"glue":{"name":"Glue"},"mobile":{"name":"Mobile"},"pricing":{"name":"Pricing","cors":true},"costexplorer":{"prefix":"ce","name":"CostExplorer","cors":true},"mediaconvert":{"name":"MediaConvert"},"medialive":{"name":"MediaLive"},"mediapackage":{"name":"MediaPackage"},"mediastore":{"name":"MediaStore"},"mediastoredata":{"prefix":"mediastore-data","name":"MediaStoreData","cors":true},"appsync":{"name":"AppSync"},"guardduty":{"name":"GuardDuty"},"mq":{"name":"MQ"},"comprehend":{"name":"Comprehend","cors":true},"iotjobsdataplane":{"prefix":"iot-jobs-data","name":"IoTJobsDataPlane"},"kinesisvideoarchivedmedia":{"prefix":"kinesis-video-archived-media","name":"KinesisVideoArchivedMedia","cors":true},"kinesisvideomedia":{"prefix":"kinesis-video-media","name":"KinesisVideoMedia","cors":true},"kinesisvideo":{"name":"KinesisVideo","cors":true},"sagemakerruntime":{"prefix":"runtime.sagemaker","name":"SageMakerRuntime"},"sagemaker":{"name":"SageMaker"},"translate":{"name":"Translate","cors":true},"resourcegroups":{"prefix":"resource-groups","name":"ResourceGroups","cors":true},"alexaforbusiness":{"name":"AlexaForBusiness"},"cloud9":{"name":"Cloud9"},"serverlessapplicationrepository":{"prefix":"serverlessrepo","name":"ServerlessApplicationRepository"},"servicediscovery":{"name":"ServiceDiscovery"},"workmail":{"name":"WorkMail"},"autoscalingplans":{"prefix":"autoscaling-plans","name":"AutoScalingPlans"},"transcribeservice":{"prefix":"transcribe","name":"TranscribeService"},"connect":{"name":"Connect","cors":true},"acmpca":{"prefix":"acm-pca","name":"ACMPCA"},"fms":{"name":"FMS"},"secretsmanager":{"name":"SecretsManager","cors":true},"iotanalytics":{"name":"IoTAnalytics","cors":true},"iot1clickdevicesservice":{"prefix":"iot1click-devices","name":"IoT1ClickDevicesService"},"iot1clickprojects":{"prefix":"iot1click-projects","name":"IoT1ClickProjects"},"pi":{"name":"PI"},"neptune":{"name":"Neptune"},"mediatailor":{"name":"MediaTailor"},"eks":{"name":"EKS"},"macie":{"name":"Macie"},"dlm":{"name":"DLM"},"signer":{"name":"Signer"},"chime":{"name":"Chime"},"pinpointemail":{"prefix":"pinpoint-email","name":"PinpointEmail"},"ram":{"name":"RAM"},"route53resolver":{"name":"Route53Resolver"},"pinpointsmsvoice":{"prefix":"sms-voice","name":"PinpointSMSVoice"},"quicksight":{"name":"QuickSight"},"rdsdataservice":{"prefix":"rds-data","name":"RDSDataService"},"amplify":{"name":"Amplify"},"datasync":{"name":"DataSync"},"robomaker":{"name":"RoboMaker"},"transfer":{"name":"Transfer"},"globalaccelerator":{"name":"GlobalAccelerator"},"comprehendmedical":{"name":"ComprehendMedical","cors":true},"kinesisanalyticsv2":{"name":"KinesisAnalyticsV2"},"mediaconnect":{"name":"MediaConnect"},"fsx":{"name":"FSx"},"securityhub":{"name":"SecurityHub"},"appmesh":{"name":"AppMesh","versions":["2018-10-01*"]},"licensemanager":{"prefix":"license-manager","name":"LicenseManager"},"kafka":{"name":"Kafka"},"apigatewaymanagementapi":{"name":"ApiGatewayManagementApi"},"apigatewayv2":{"name":"ApiGatewayV2"},"docdb":{"name":"DocDB"},"backup":{"name":"Backup"},"worklink":{"name":"WorkLink"},"textract":{"name":"Textract"},"managedblockchain":{"name":"ManagedBlockchain"},"mediapackagevod":{"prefix":"mediapackage-vod","name":"MediaPackageVod"},"groundstation":{"name":"GroundStation"},"iotthingsgraph":{"name":"IoTThingsGraph"},"iotevents":{"name":"IoTEvents"},"ioteventsdata":{"prefix":"iotevents-data","name":"IoTEventsData"},"personalize":{"name":"Personalize","cors":true},"personalizeevents":{"prefix":"personalize-events","name":"PersonalizeEvents","cors":true},"personalizeruntime":{"prefix":"personalize-runtime","name":"PersonalizeRuntime","cors":true},"applicationinsights":{"prefix":"application-insights","name":"ApplicationInsights"},"servicequotas":{"prefix":"service-quotas","name":"ServiceQuotas"},"ec2instanceconnect":{"prefix":"ec2-instance-connect","name":"EC2InstanceConnect"},"eventbridge":{"name":"EventBridge"},"lakeformation":{"name":"LakeFormation"},"forecastservice":{"prefix":"forecast","name":"ForecastService","cors":true},"forecastqueryservice":{"prefix":"forecastquery","name":"ForecastQueryService","cors":true},"qldb":{"name":"QLDB"},"qldbsession":{"prefix":"qldb-session","name":"QLDBSession"},"workmailmessageflow":{"name":"WorkMailMessageFlow"},"codestarnotifications":{"prefix":"codestar-notifications","name":"CodeStarNotifications"},"savingsplans":{"name":"SavingsPlans"},"sso":{"name":"SSO"},"ssooidc":{"prefix":"sso-oidc","name":"SSOOIDC"},"marketplacecatalog":{"prefix":"marketplace-catalog","name":"MarketplaceCatalog"},"dataexchange":{"name":"DataExchange"},"sesv2":{"name":"SESV2"},"migrationhubconfig":{"prefix":"migrationhub-config","name":"MigrationHubConfig"},"connectparticipant":{"name":"ConnectParticipant"},"appconfig":{"name":"AppConfig"},"iotsecuretunneling":{"name":"IoTSecureTunneling"},"wafv2":{"name":"WAFV2"},"elasticinference":{"prefix":"elastic-inference","name":"ElasticInference"},"imagebuilder":{"name":"Imagebuilder"},"schemas":{"name":"Schemas"},"accessanalyzer":{"name":"AccessAnalyzer"},"codegurureviewer":{"prefix":"codeguru-reviewer","name":"CodeGuruReviewer"},"codeguruprofiler":{"name":"CodeGuruProfiler"},"computeoptimizer":{"prefix":"compute-optimizer","name":"ComputeOptimizer"},"frauddetector":{"name":"FraudDetector"},"kendra":{"name":"Kendra"},"networkmanager":{"name":"NetworkManager"},"outposts":{"name":"Outposts"},"augmentedairuntime":{"prefix":"sagemaker-a2i-runtime","name":"AugmentedAIRuntime"},"ebs":{"name":"EBS"},"kinesisvideosignalingchannels":{"prefix":"kinesis-video-signaling","name":"KinesisVideoSignalingChannels","cors":true},"detective":{"name":"Detective"},"codestarconnections":{"prefix":"codestar-connections","name":"CodeStarconnections"},"synthetics":{"name":"Synthetics"},"iotsitewise":{"name":"IoTSiteWise"}};
+module.exports = {"acm":{"name":"ACM","cors":true},"apigateway":{"name":"APIGateway","cors":true},"applicationautoscaling":{"prefix":"application-autoscaling","name":"ApplicationAutoScaling","cors":true},"appstream":{"name":"AppStream"},"autoscaling":{"name":"AutoScaling","cors":true},"batch":{"name":"Batch"},"budgets":{"name":"Budgets"},"clouddirectory":{"name":"CloudDirectory","versions":["2016-05-10*"]},"cloudformation":{"name":"CloudFormation","cors":true},"cloudfront":{"name":"CloudFront","versions":["2013-05-12*","2013-11-11*","2014-05-31*","2014-10-21*","2014-11-06*","2015-04-17*","2015-07-27*","2015-09-17*","2016-01-13*","2016-01-28*","2016-08-01*","2016-08-20*","2016-09-07*","2016-09-29*","2016-11-25*","2017-03-25*","2017-10-30*","2018-06-18*","2018-11-05*","2019-03-26*"],"cors":true},"cloudhsm":{"name":"CloudHSM","cors":true},"cloudsearch":{"name":"CloudSearch"},"cloudsearchdomain":{"name":"CloudSearchDomain"},"cloudtrail":{"name":"CloudTrail","cors":true},"cloudwatch":{"prefix":"monitoring","name":"CloudWatch","cors":true},"cloudwatchevents":{"prefix":"events","name":"CloudWatchEvents","versions":["2014-02-03*"],"cors":true},"cloudwatchlogs":{"prefix":"logs","name":"CloudWatchLogs","cors":true},"codebuild":{"name":"CodeBuild","cors":true},"codecommit":{"name":"CodeCommit","cors":true},"codedeploy":{"name":"CodeDeploy","cors":true},"codepipeline":{"name":"CodePipeline","cors":true},"cognitoidentity":{"prefix":"cognito-identity","name":"CognitoIdentity","cors":true},"cognitoidentityserviceprovider":{"prefix":"cognito-idp","name":"CognitoIdentityServiceProvider","cors":true},"cognitosync":{"prefix":"cognito-sync","name":"CognitoSync","cors":true},"configservice":{"prefix":"config","name":"ConfigService","cors":true},"cur":{"name":"CUR","cors":true},"datapipeline":{"name":"DataPipeline"},"devicefarm":{"name":"DeviceFarm","cors":true},"directconnect":{"name":"DirectConnect","cors":true},"directoryservice":{"prefix":"ds","name":"DirectoryService"},"discovery":{"name":"Discovery"},"dms":{"name":"DMS"},"dynamodb":{"name":"DynamoDB","cors":true},"dynamodbstreams":{"prefix":"streams.dynamodb","name":"DynamoDBStreams","cors":true},"ec2":{"name":"EC2","versions":["2013-06-15*","2013-10-15*","2014-02-01*","2014-05-01*","2014-06-15*","2014-09-01*","2014-10-01*","2015-03-01*","2015-04-15*","2015-10-01*","2016-04-01*","2016-09-15*"],"cors":true},"ecr":{"name":"ECR","cors":true},"ecs":{"name":"ECS","cors":true},"efs":{"prefix":"elasticfilesystem","name":"EFS","cors":true},"elasticache":{"name":"ElastiCache","versions":["2012-11-15*","2014-03-24*","2014-07-15*","2014-09-30*"],"cors":true},"elasticbeanstalk":{"name":"ElasticBeanstalk","cors":true},"elb":{"prefix":"elasticloadbalancing","name":"ELB","cors":true},"elbv2":{"prefix":"elasticloadbalancingv2","name":"ELBv2","cors":true},"emr":{"prefix":"elasticmapreduce","name":"EMR","cors":true},"es":{"name":"ES"},"elastictranscoder":{"name":"ElasticTranscoder","cors":true},"firehose":{"name":"Firehose","cors":true},"gamelift":{"name":"GameLift","cors":true},"glacier":{"name":"Glacier"},"health":{"name":"Health"},"iam":{"name":"IAM","cors":true},"importexport":{"name":"ImportExport"},"inspector":{"name":"Inspector","versions":["2015-08-18*"],"cors":true},"iot":{"name":"Iot","cors":true},"iotdata":{"prefix":"iot-data","name":"IotData","cors":true},"kinesis":{"name":"Kinesis","cors":true},"kinesisanalytics":{"name":"KinesisAnalytics"},"kms":{"name":"KMS","cors":true},"lambda":{"name":"Lambda","cors":true},"lexruntime":{"prefix":"runtime.lex","name":"LexRuntime","cors":true},"lightsail":{"name":"Lightsail"},"machinelearning":{"name":"MachineLearning","cors":true},"marketplacecommerceanalytics":{"name":"MarketplaceCommerceAnalytics","cors":true},"marketplacemetering":{"prefix":"meteringmarketplace","name":"MarketplaceMetering"},"mturk":{"prefix":"mturk-requester","name":"MTurk","cors":true},"mobileanalytics":{"name":"MobileAnalytics","cors":true},"opsworks":{"name":"OpsWorks","cors":true},"opsworkscm":{"name":"OpsWorksCM"},"organizations":{"name":"Organizations"},"pinpoint":{"name":"Pinpoint"},"polly":{"name":"Polly","cors":true},"rds":{"name":"RDS","versions":["2014-09-01*"],"cors":true},"redshift":{"name":"Redshift","cors":true},"rekognition":{"name":"Rekognition","cors":true},"resourcegroupstaggingapi":{"name":"ResourceGroupsTaggingAPI"},"route53":{"name":"Route53","cors":true},"route53domains":{"name":"Route53Domains","cors":true},"s3":{"name":"S3","dualstackAvailable":true,"cors":true},"s3control":{"name":"S3Control","dualstackAvailable":true,"xmlNoDefaultLists":true},"servicecatalog":{"name":"ServiceCatalog","cors":true},"ses":{"prefix":"email","name":"SES","cors":true},"shield":{"name":"Shield"},"simpledb":{"prefix":"sdb","name":"SimpleDB"},"sms":{"name":"SMS"},"snowball":{"name":"Snowball"},"sns":{"name":"SNS","cors":true},"sqs":{"name":"SQS","cors":true},"ssm":{"name":"SSM","cors":true},"storagegateway":{"name":"StorageGateway","cors":true},"stepfunctions":{"prefix":"states","name":"StepFunctions"},"sts":{"name":"STS","cors":true},"support":{"name":"Support"},"swf":{"name":"SWF"},"xray":{"name":"XRay","cors":true},"waf":{"name":"WAF","cors":true},"wafregional":{"prefix":"waf-regional","name":"WAFRegional"},"workdocs":{"name":"WorkDocs","cors":true},"workspaces":{"name":"WorkSpaces"},"codestar":{"name":"CodeStar"},"lexmodelbuildingservice":{"prefix":"lex-models","name":"LexModelBuildingService","cors":true},"marketplaceentitlementservice":{"prefix":"entitlement.marketplace","name":"MarketplaceEntitlementService"},"athena":{"name":"Athena"},"greengrass":{"name":"Greengrass"},"dax":{"name":"DAX"},"migrationhub":{"prefix":"AWSMigrationHub","name":"MigrationHub"},"cloudhsmv2":{"name":"CloudHSMV2"},"glue":{"name":"Glue"},"mobile":{"name":"Mobile"},"pricing":{"name":"Pricing","cors":true},"costexplorer":{"prefix":"ce","name":"CostExplorer","cors":true},"mediaconvert":{"name":"MediaConvert"},"medialive":{"name":"MediaLive"},"mediapackage":{"name":"MediaPackage"},"mediastore":{"name":"MediaStore"},"mediastoredata":{"prefix":"mediastore-data","name":"MediaStoreData","cors":true},"appsync":{"name":"AppSync"},"guardduty":{"name":"GuardDuty"},"mq":{"name":"MQ"},"comprehend":{"name":"Comprehend","cors":true},"iotjobsdataplane":{"prefix":"iot-jobs-data","name":"IoTJobsDataPlane"},"kinesisvideoarchivedmedia":{"prefix":"kinesis-video-archived-media","name":"KinesisVideoArchivedMedia","cors":true},"kinesisvideomedia":{"prefix":"kinesis-video-media","name":"KinesisVideoMedia","cors":true},"kinesisvideo":{"name":"KinesisVideo","cors":true},"sagemakerruntime":{"prefix":"runtime.sagemaker","name":"SageMakerRuntime"},"sagemaker":{"name":"SageMaker"},"translate":{"name":"Translate","cors":true},"resourcegroups":{"prefix":"resource-groups","name":"ResourceGroups","cors":true},"alexaforbusiness":{"name":"AlexaForBusiness"},"cloud9":{"name":"Cloud9"},"serverlessapplicationrepository":{"prefix":"serverlessrepo","name":"ServerlessApplicationRepository"},"servicediscovery":{"name":"ServiceDiscovery"},"workmail":{"name":"WorkMail"},"autoscalingplans":{"prefix":"autoscaling-plans","name":"AutoScalingPlans"},"transcribeservice":{"prefix":"transcribe","name":"TranscribeService"},"connect":{"name":"Connect","cors":true},"acmpca":{"prefix":"acm-pca","name":"ACMPCA"},"fms":{"name":"FMS"},"secretsmanager":{"name":"SecretsManager","cors":true},"iotanalytics":{"name":"IoTAnalytics","cors":true},"iot1clickdevicesservice":{"prefix":"iot1click-devices","name":"IoT1ClickDevicesService"},"iot1clickprojects":{"prefix":"iot1click-projects","name":"IoT1ClickProjects"},"pi":{"name":"PI"},"neptune":{"name":"Neptune"},"mediatailor":{"name":"MediaTailor"},"eks":{"name":"EKS"},"macie":{"name":"Macie"},"dlm":{"name":"DLM"},"signer":{"name":"Signer"},"chime":{"name":"Chime"},"pinpointemail":{"prefix":"pinpoint-email","name":"PinpointEmail"},"ram":{"name":"RAM"},"route53resolver":{"name":"Route53Resolver"},"pinpointsmsvoice":{"prefix":"sms-voice","name":"PinpointSMSVoice"},"quicksight":{"name":"QuickSight"},"rdsdataservice":{"prefix":"rds-data","name":"RDSDataService"},"amplify":{"name":"Amplify"},"datasync":{"name":"DataSync"},"robomaker":{"name":"RoboMaker"},"transfer":{"name":"Transfer"},"globalaccelerator":{"name":"GlobalAccelerator"},"comprehendmedical":{"name":"ComprehendMedical","cors":true},"kinesisanalyticsv2":{"name":"KinesisAnalyticsV2"},"mediaconnect":{"name":"MediaConnect"},"fsx":{"name":"FSx"},"securityhub":{"name":"SecurityHub"},"appmesh":{"name":"AppMesh","versions":["2018-10-01*"]},"licensemanager":{"prefix":"license-manager","name":"LicenseManager"},"kafka":{"name":"Kafka"},"apigatewaymanagementapi":{"name":"ApiGatewayManagementApi"},"apigatewayv2":{"name":"ApiGatewayV2"},"docdb":{"name":"DocDB"},"backup":{"name":"Backup"},"worklink":{"name":"WorkLink"},"textract":{"name":"Textract"},"managedblockchain":{"name":"ManagedBlockchain"},"mediapackagevod":{"prefix":"mediapackage-vod","name":"MediaPackageVod"},"groundstation":{"name":"GroundStation"},"iotthingsgraph":{"name":"IoTThingsGraph"},"iotevents":{"name":"IoTEvents"},"ioteventsdata":{"prefix":"iotevents-data","name":"IoTEventsData"},"personalize":{"name":"Personalize","cors":true},"personalizeevents":{"prefix":"personalize-events","name":"PersonalizeEvents","cors":true},"personalizeruntime":{"prefix":"personalize-runtime","name":"PersonalizeRuntime","cors":true},"applicationinsights":{"prefix":"application-insights","name":"ApplicationInsights"},"servicequotas":{"prefix":"service-quotas","name":"ServiceQuotas"},"ec2instanceconnect":{"prefix":"ec2-instance-connect","name":"EC2InstanceConnect"},"eventbridge":{"name":"EventBridge"},"lakeformation":{"name":"LakeFormation"},"forecastservice":{"prefix":"forecast","name":"ForecastService","cors":true},"forecastqueryservice":{"prefix":"forecastquery","name":"ForecastQueryService","cors":true},"qldb":{"name":"QLDB"},"qldbsession":{"prefix":"qldb-session","name":"QLDBSession"},"workmailmessageflow":{"name":"WorkMailMessageFlow"},"codestarnotifications":{"prefix":"codestar-notifications","name":"CodeStarNotifications"},"savingsplans":{"name":"SavingsPlans"},"sso":{"name":"SSO"},"ssooidc":{"prefix":"sso-oidc","name":"SSOOIDC"},"marketplacecatalog":{"prefix":"marketplace-catalog","name":"MarketplaceCatalog"},"dataexchange":{"name":"DataExchange"},"sesv2":{"name":"SESV2"},"migrationhubconfig":{"prefix":"migrationhub-config","name":"MigrationHubConfig"},"connectparticipant":{"name":"ConnectParticipant"},"appconfig":{"name":"AppConfig"},"iotsecuretunneling":{"name":"IoTSecureTunneling"},"wafv2":{"name":"WAFV2"},"elasticinference":{"prefix":"elastic-inference","name":"ElasticInference"},"imagebuilder":{"name":"Imagebuilder"},"schemas":{"name":"Schemas"},"accessanalyzer":{"name":"AccessAnalyzer"},"codegurureviewer":{"prefix":"codeguru-reviewer","name":"CodeGuruReviewer"},"codeguruprofiler":{"name":"CodeGuruProfiler"},"computeoptimizer":{"prefix":"compute-optimizer","name":"ComputeOptimizer"},"frauddetector":{"name":"FraudDetector"},"kendra":{"name":"Kendra"},"networkmanager":{"name":"NetworkManager"},"outposts":{"name":"Outposts"},"augmentedairuntime":{"prefix":"sagemaker-a2i-runtime","name":"AugmentedAIRuntime"},"ebs":{"name":"EBS"},"kinesisvideosignalingchannels":{"prefix":"kinesis-video-signaling","name":"KinesisVideoSignalingChannels","cors":true},"detective":{"name":"Detective"},"codestarconnections":{"prefix":"codestar-connections","name":"CodeStarconnections"},"synthetics":{"name":"Synthetics"},"iotsitewise":{"name":"IoTSiteWise"},"macie2":{"name":"Macie2"},"codeartifact":{"name":"CodeArtifact"},"honeycode":{"name":"Honeycode"},"ivs":{"name":"IVS"},"braket":{"name":"Braket"},"identitystore":{"name":"IdentityStore"},"appflow":{"name":"Appflow"},"redshiftdata":{"prefix":"redshift-data","name":"RedshiftData"},"ssoadmin":{"prefix":"sso-admin","name":"SSOAdmin"},"timestreamquery":{"prefix":"timestream-query","name":"TimestreamQuery"},"timestreamwrite":{"prefix":"timestream-write","name":"TimestreamWrite"},"s3outposts":{"name":"S3Outposts"},"databrew":{"name":"DataBrew"},"servicecatalogappregistry":{"prefix":"servicecatalog-appregistry","name":"ServiceCatalogAppRegistry"}};
 
 /***/ }),
 
 /***/ 899:
 /***/ (function(module) {
 
-module.exports = {"version":"2.0","metadata":{"apiVersion":"2010-05-15","endpointPrefix":"cloudformation","protocol":"query","serviceFullName":"AWS CloudFormation","serviceId":"CloudFormation","signatureVersion":"v4","uid":"cloudformation-2010-05-15","xmlNamespace":"http://cloudformation.amazonaws.com/doc/2010-05-15/"},"operations":{"CancelUpdateStack":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"ClientRequestToken":{}}}},"ContinueUpdateRollback":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"RoleARN":{},"ResourcesToSkip":{"type":"list","member":{}},"ClientRequestToken":{}}},"output":{"resultWrapper":"ContinueUpdateRollbackResult","type":"structure","members":{}}},"CreateChangeSet":{"input":{"type":"structure","required":["StackName","ChangeSetName"],"members":{"StackName":{},"TemplateBody":{},"TemplateURL":{},"UsePreviousTemplate":{"type":"boolean"},"Parameters":{"shape":"Se"},"Capabilities":{"shape":"Sj"},"ResourceTypes":{"shape":"Sl"},"RoleARN":{},"RollbackConfiguration":{"shape":"Sn"},"NotificationARNs":{"shape":"St"},"Tags":{"shape":"Sv"},"ChangeSetName":{},"ClientToken":{},"Description":{},"ChangeSetType":{},"ResourcesToImport":{"type":"list","member":{"type":"structure","required":["ResourceType","LogicalResourceId","ResourceIdentifier"],"members":{"ResourceType":{},"LogicalResourceId":{},"ResourceIdentifier":{"type":"map","key":{},"value":{}}}}}}},"output":{"resultWrapper":"CreateChangeSetResult","type":"structure","members":{"Id":{},"StackId":{}}}},"CreateStack":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"TemplateBody":{},"TemplateURL":{},"Parameters":{"shape":"Se"},"DisableRollback":{"type":"boolean"},"RollbackConfiguration":{"shape":"Sn"},"TimeoutInMinutes":{"type":"integer"},"NotificationARNs":{"shape":"St"},"Capabilities":{"shape":"Sj"},"ResourceTypes":{"shape":"Sl"},"RoleARN":{},"OnFailure":{},"StackPolicyBody":{},"StackPolicyURL":{},"Tags":{"shape":"Sv"},"ClientRequestToken":{},"EnableTerminationProtection":{"type":"boolean"}}},"output":{"resultWrapper":"CreateStackResult","type":"structure","members":{"StackId":{}}}},"CreateStackInstances":{"input":{"type":"structure","required":["StackSetName","Regions"],"members":{"StackSetName":{},"Accounts":{"shape":"S1m"},"DeploymentTargets":{"shape":"S1o"},"Regions":{"shape":"S1r"},"ParameterOverrides":{"shape":"Se"},"OperationPreferences":{"shape":"S1t"},"OperationId":{"idempotencyToken":true}}},"output":{"resultWrapper":"CreateStackInstancesResult","type":"structure","members":{"OperationId":{}}}},"CreateStackSet":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{},"Description":{},"TemplateBody":{},"TemplateURL":{},"Parameters":{"shape":"Se"},"Capabilities":{"shape":"Sj"},"Tags":{"shape":"Sv"},"AdministrationRoleARN":{},"ExecutionRoleName":{},"PermissionModel":{},"AutoDeployment":{"shape":"S22"},"ClientRequestToken":{"idempotencyToken":true}}},"output":{"resultWrapper":"CreateStackSetResult","type":"structure","members":{"StackSetId":{}}}},"DeleteChangeSet":{"input":{"type":"structure","required":["ChangeSetName"],"members":{"ChangeSetName":{},"StackName":{}}},"output":{"resultWrapper":"DeleteChangeSetResult","type":"structure","members":{}}},"DeleteStack":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"RetainResources":{"type":"list","member":{}},"RoleARN":{},"ClientRequestToken":{}}}},"DeleteStackInstances":{"input":{"type":"structure","required":["StackSetName","Regions","RetainStacks"],"members":{"StackSetName":{},"Accounts":{"shape":"S1m"},"DeploymentTargets":{"shape":"S1o"},"Regions":{"shape":"S1r"},"OperationPreferences":{"shape":"S1t"},"RetainStacks":{"type":"boolean"},"OperationId":{"idempotencyToken":true}}},"output":{"resultWrapper":"DeleteStackInstancesResult","type":"structure","members":{"OperationId":{}}}},"DeleteStackSet":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{}}},"output":{"resultWrapper":"DeleteStackSetResult","type":"structure","members":{}}},"DeregisterType":{"input":{"type":"structure","members":{"Arn":{},"Type":{},"TypeName":{},"VersionId":{}}},"output":{"resultWrapper":"DeregisterTypeResult","type":"structure","members":{}},"idempotent":true},"DescribeAccountLimits":{"input":{"type":"structure","members":{"NextToken":{}}},"output":{"resultWrapper":"DescribeAccountLimitsResult","type":"structure","members":{"AccountLimits":{"type":"list","member":{"type":"structure","members":{"Name":{},"Value":{"type":"integer"}}}},"NextToken":{}}}},"DescribeChangeSet":{"input":{"type":"structure","required":["ChangeSetName"],"members":{"ChangeSetName":{},"StackName":{},"NextToken":{}}},"output":{"resultWrapper":"DescribeChangeSetResult","type":"structure","members":{"ChangeSetName":{},"ChangeSetId":{},"StackId":{},"StackName":{},"Description":{},"Parameters":{"shape":"Se"},"CreationTime":{"type":"timestamp"},"ExecutionStatus":{},"Status":{},"StatusReason":{},"NotificationARNs":{"shape":"St"},"RollbackConfiguration":{"shape":"Sn"},"Capabilities":{"shape":"Sj"},"Tags":{"shape":"Sv"},"Changes":{"type":"list","member":{"type":"structure","members":{"Type":{},"ResourceChange":{"type":"structure","members":{"Action":{},"LogicalResourceId":{},"PhysicalResourceId":{},"ResourceType":{},"Replacement":{},"Scope":{"type":"list","member":{}},"Details":{"type":"list","member":{"type":"structure","members":{"Target":{"type":"structure","members":{"Attribute":{},"Name":{},"RequiresRecreation":{}}},"Evaluation":{},"ChangeSource":{},"CausingEntity":{}}}}}}}}},"NextToken":{}}}},"DescribeStackDriftDetectionStatus":{"input":{"type":"structure","required":["StackDriftDetectionId"],"members":{"StackDriftDetectionId":{}}},"output":{"resultWrapper":"DescribeStackDriftDetectionStatusResult","type":"structure","required":["StackId","StackDriftDetectionId","DetectionStatus","Timestamp"],"members":{"StackId":{},"StackDriftDetectionId":{},"StackDriftStatus":{},"DetectionStatus":{},"DetectionStatusReason":{},"DriftedStackResourceCount":{"type":"integer"},"Timestamp":{"type":"timestamp"}}}},"DescribeStackEvents":{"input":{"type":"structure","members":{"StackName":{},"NextToken":{}}},"output":{"resultWrapper":"DescribeStackEventsResult","type":"structure","members":{"StackEvents":{"type":"list","member":{"type":"structure","required":["StackId","EventId","StackName","Timestamp"],"members":{"StackId":{},"EventId":{},"StackName":{},"LogicalResourceId":{},"PhysicalResourceId":{},"ResourceType":{},"Timestamp":{"type":"timestamp"},"ResourceStatus":{},"ResourceStatusReason":{},"ResourceProperties":{},"ClientRequestToken":{}}}},"NextToken":{}}}},"DescribeStackInstance":{"input":{"type":"structure","required":["StackSetName","StackInstanceAccount","StackInstanceRegion"],"members":{"StackSetName":{},"StackInstanceAccount":{},"StackInstanceRegion":{}}},"output":{"resultWrapper":"DescribeStackInstanceResult","type":"structure","members":{"StackInstance":{"type":"structure","members":{"StackSetId":{},"Region":{},"Account":{},"StackId":{},"ParameterOverrides":{"shape":"Se"},"Status":{},"StatusReason":{},"OrganizationalUnitId":{},"DriftStatus":{},"LastDriftCheckTimestamp":{"type":"timestamp"}}}}}},"DescribeStackResource":{"input":{"type":"structure","required":["StackName","LogicalResourceId"],"members":{"StackName":{},"LogicalResourceId":{}}},"output":{"resultWrapper":"DescribeStackResourceResult","type":"structure","members":{"StackResourceDetail":{"type":"structure","required":["LogicalResourceId","ResourceType","LastUpdatedTimestamp","ResourceStatus"],"members":{"StackName":{},"StackId":{},"LogicalResourceId":{},"PhysicalResourceId":{},"ResourceType":{},"LastUpdatedTimestamp":{"type":"timestamp"},"ResourceStatus":{},"ResourceStatusReason":{},"Description":{},"Metadata":{},"DriftInformation":{"shape":"S46"}}}}}},"DescribeStackResourceDrifts":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"StackResourceDriftStatusFilters":{"type":"list","member":{}},"NextToken":{},"MaxResults":{"type":"integer"}}},"output":{"resultWrapper":"DescribeStackResourceDriftsResult","type":"structure","required":["StackResourceDrifts"],"members":{"StackResourceDrifts":{"type":"list","member":{"shape":"S4d"}},"NextToken":{}}}},"DescribeStackResources":{"input":{"type":"structure","members":{"StackName":{},"LogicalResourceId":{},"PhysicalResourceId":{}}},"output":{"resultWrapper":"DescribeStackResourcesResult","type":"structure","members":{"StackResources":{"type":"list","member":{"type":"structure","required":["LogicalResourceId","ResourceType","Timestamp","ResourceStatus"],"members":{"StackName":{},"StackId":{},"LogicalResourceId":{},"PhysicalResourceId":{},"ResourceType":{},"Timestamp":{"type":"timestamp"},"ResourceStatus":{},"ResourceStatusReason":{},"Description":{},"DriftInformation":{"shape":"S46"}}}}}}},"DescribeStackSet":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{}}},"output":{"resultWrapper":"DescribeStackSetResult","type":"structure","members":{"StackSet":{"type":"structure","members":{"StackSetName":{},"StackSetId":{},"Description":{},"Status":{},"TemplateBody":{},"Parameters":{"shape":"Se"},"Capabilities":{"shape":"Sj"},"Tags":{"shape":"Sv"},"StackSetARN":{},"AdministrationRoleARN":{},"ExecutionRoleName":{},"StackSetDriftDetectionDetails":{"shape":"S4x"},"AutoDeployment":{"shape":"S22"},"PermissionModel":{},"OrganizationalUnitIds":{"shape":"S1p"}}}}}},"DescribeStackSetOperation":{"input":{"type":"structure","required":["StackSetName","OperationId"],"members":{"StackSetName":{},"OperationId":{}}},"output":{"resultWrapper":"DescribeStackSetOperationResult","type":"structure","members":{"StackSetOperation":{"type":"structure","members":{"OperationId":{},"StackSetId":{},"Action":{},"Status":{},"OperationPreferences":{"shape":"S1t"},"RetainStacks":{"type":"boolean"},"AdministrationRoleARN":{},"ExecutionRoleName":{},"CreationTimestamp":{"type":"timestamp"},"EndTimestamp":{"type":"timestamp"},"DeploymentTargets":{"shape":"S1o"},"StackSetDriftDetectionDetails":{"shape":"S4x"}}}}}},"DescribeStacks":{"input":{"type":"structure","members":{"StackName":{},"NextToken":{}}},"output":{"resultWrapper":"DescribeStacksResult","type":"structure","members":{"Stacks":{"type":"list","member":{"type":"structure","required":["StackName","CreationTime","StackStatus"],"members":{"StackId":{},"StackName":{},"ChangeSetId":{},"Description":{},"Parameters":{"shape":"Se"},"CreationTime":{"type":"timestamp"},"DeletionTime":{"type":"timestamp"},"LastUpdatedTime":{"type":"timestamp"},"RollbackConfiguration":{"shape":"Sn"},"StackStatus":{},"StackStatusReason":{},"DisableRollback":{"type":"boolean"},"NotificationARNs":{"shape":"St"},"TimeoutInMinutes":{"type":"integer"},"Capabilities":{"shape":"Sj"},"Outputs":{"type":"list","member":{"type":"structure","members":{"OutputKey":{},"OutputValue":{},"Description":{},"ExportName":{}}}},"RoleARN":{},"Tags":{"shape":"Sv"},"EnableTerminationProtection":{"type":"boolean"},"ParentId":{},"RootId":{},"DriftInformation":{"type":"structure","required":["StackDriftStatus"],"members":{"StackDriftStatus":{},"LastCheckTimestamp":{"type":"timestamp"}}}}}},"NextToken":{}}}},"DescribeType":{"input":{"type":"structure","members":{"Type":{},"TypeName":{},"Arn":{},"VersionId":{}}},"output":{"resultWrapper":"DescribeTypeResult","type":"structure","members":{"Arn":{},"Type":{},"TypeName":{},"DefaultVersionId":{},"Description":{},"Schema":{},"ProvisioningType":{},"DeprecatedStatus":{},"LoggingConfig":{"shape":"S5v"},"ExecutionRoleArn":{},"Visibility":{},"SourceUrl":{},"DocumentationUrl":{},"LastUpdated":{"type":"timestamp"},"TimeCreated":{"type":"timestamp"}}},"idempotent":true},"DescribeTypeRegistration":{"input":{"type":"structure","required":["RegistrationToken"],"members":{"RegistrationToken":{}}},"output":{"resultWrapper":"DescribeTypeRegistrationResult","type":"structure","members":{"ProgressStatus":{},"Description":{},"TypeArn":{},"TypeVersionArn":{}}},"idempotent":true},"DetectStackDrift":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"LogicalResourceIds":{"shape":"S65"}}},"output":{"resultWrapper":"DetectStackDriftResult","type":"structure","required":["StackDriftDetectionId"],"members":{"StackDriftDetectionId":{}}}},"DetectStackResourceDrift":{"input":{"type":"structure","required":["StackName","LogicalResourceId"],"members":{"StackName":{},"LogicalResourceId":{}}},"output":{"resultWrapper":"DetectStackResourceDriftResult","type":"structure","required":["StackResourceDrift"],"members":{"StackResourceDrift":{"shape":"S4d"}}}},"DetectStackSetDrift":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{},"OperationPreferences":{"shape":"S1t"},"OperationId":{"idempotencyToken":true}}},"output":{"resultWrapper":"DetectStackSetDriftResult","type":"structure","members":{"OperationId":{}}}},"EstimateTemplateCost":{"input":{"type":"structure","members":{"TemplateBody":{},"TemplateURL":{},"Parameters":{"shape":"Se"}}},"output":{"resultWrapper":"EstimateTemplateCostResult","type":"structure","members":{"Url":{}}}},"ExecuteChangeSet":{"input":{"type":"structure","required":["ChangeSetName"],"members":{"ChangeSetName":{},"StackName":{},"ClientRequestToken":{}}},"output":{"resultWrapper":"ExecuteChangeSetResult","type":"structure","members":{}}},"GetStackPolicy":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{}}},"output":{"resultWrapper":"GetStackPolicyResult","type":"structure","members":{"StackPolicyBody":{}}}},"GetTemplate":{"input":{"type":"structure","members":{"StackName":{},"ChangeSetName":{},"TemplateStage":{}}},"output":{"resultWrapper":"GetTemplateResult","type":"structure","members":{"TemplateBody":{},"StagesAvailable":{"type":"list","member":{}}}}},"GetTemplateSummary":{"input":{"type":"structure","members":{"TemplateBody":{},"TemplateURL":{},"StackName":{},"StackSetName":{}}},"output":{"resultWrapper":"GetTemplateSummaryResult","type":"structure","members":{"Parameters":{"type":"list","member":{"type":"structure","members":{"ParameterKey":{},"DefaultValue":{},"ParameterType":{},"NoEcho":{"type":"boolean"},"Description":{},"ParameterConstraints":{"type":"structure","members":{"AllowedValues":{"type":"list","member":{}}}}}}},"Description":{},"Capabilities":{"shape":"Sj"},"CapabilitiesReason":{},"ResourceTypes":{"shape":"Sl"},"Version":{},"Metadata":{},"DeclaredTransforms":{"shape":"S6y"},"ResourceIdentifierSummaries":{"type":"list","member":{"type":"structure","members":{"ResourceType":{},"LogicalResourceIds":{"shape":"S65"},"ResourceIdentifiers":{"type":"list","member":{}}}}}}}},"ListChangeSets":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"NextToken":{}}},"output":{"resultWrapper":"ListChangeSetsResult","type":"structure","members":{"Summaries":{"type":"list","member":{"type":"structure","members":{"StackId":{},"StackName":{},"ChangeSetId":{},"ChangeSetName":{},"ExecutionStatus":{},"Status":{},"StatusReason":{},"CreationTime":{"type":"timestamp"},"Description":{}}}},"NextToken":{}}}},"ListExports":{"input":{"type":"structure","members":{"NextToken":{}}},"output":{"resultWrapper":"ListExportsResult","type":"structure","members":{"Exports":{"type":"list","member":{"type":"structure","members":{"ExportingStackId":{},"Name":{},"Value":{}}}},"NextToken":{}}}},"ListImports":{"input":{"type":"structure","required":["ExportName"],"members":{"ExportName":{},"NextToken":{}}},"output":{"resultWrapper":"ListImportsResult","type":"structure","members":{"Imports":{"type":"list","member":{}},"NextToken":{}}}},"ListStackInstances":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{},"NextToken":{},"MaxResults":{"type":"integer"},"StackInstanceAccount":{},"StackInstanceRegion":{}}},"output":{"resultWrapper":"ListStackInstancesResult","type":"structure","members":{"Summaries":{"type":"list","member":{"type":"structure","members":{"StackSetId":{},"Region":{},"Account":{},"StackId":{},"Status":{},"StatusReason":{},"OrganizationalUnitId":{},"DriftStatus":{},"LastDriftCheckTimestamp":{"type":"timestamp"}}}},"NextToken":{}}}},"ListStackResources":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"NextToken":{}}},"output":{"resultWrapper":"ListStackResourcesResult","type":"structure","members":{"StackResourceSummaries":{"type":"list","member":{"type":"structure","required":["LogicalResourceId","ResourceType","LastUpdatedTimestamp","ResourceStatus"],"members":{"LogicalResourceId":{},"PhysicalResourceId":{},"ResourceType":{},"LastUpdatedTimestamp":{"type":"timestamp"},"ResourceStatus":{},"ResourceStatusReason":{},"DriftInformation":{"type":"structure","required":["StackResourceDriftStatus"],"members":{"StackResourceDriftStatus":{},"LastCheckTimestamp":{"type":"timestamp"}}}}}},"NextToken":{}}}},"ListStackSetOperationResults":{"input":{"type":"structure","required":["StackSetName","OperationId"],"members":{"StackSetName":{},"OperationId":{},"NextToken":{},"MaxResults":{"type":"integer"}}},"output":{"resultWrapper":"ListStackSetOperationResultsResult","type":"structure","members":{"Summaries":{"type":"list","member":{"type":"structure","members":{"Account":{},"Region":{},"Status":{},"StatusReason":{},"AccountGateResult":{"type":"structure","members":{"Status":{},"StatusReason":{}}},"OrganizationalUnitId":{}}}},"NextToken":{}}}},"ListStackSetOperations":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{},"NextToken":{},"MaxResults":{"type":"integer"}}},"output":{"resultWrapper":"ListStackSetOperationsResult","type":"structure","members":{"Summaries":{"type":"list","member":{"type":"structure","members":{"OperationId":{},"Action":{},"Status":{},"CreationTimestamp":{"type":"timestamp"},"EndTimestamp":{"type":"timestamp"}}}},"NextToken":{}}}},"ListStackSets":{"input":{"type":"structure","members":{"NextToken":{},"MaxResults":{"type":"integer"},"Status":{}}},"output":{"resultWrapper":"ListStackSetsResult","type":"structure","members":{"Summaries":{"type":"list","member":{"type":"structure","members":{"StackSetName":{},"StackSetId":{},"Description":{},"Status":{},"AutoDeployment":{"shape":"S22"},"PermissionModel":{},"DriftStatus":{},"LastDriftCheckTimestamp":{"type":"timestamp"}}}},"NextToken":{}}}},"ListStacks":{"input":{"type":"structure","members":{"NextToken":{},"StackStatusFilter":{"type":"list","member":{}}}},"output":{"resultWrapper":"ListStacksResult","type":"structure","members":{"StackSummaries":{"type":"list","member":{"type":"structure","required":["StackName","CreationTime","StackStatus"],"members":{"StackId":{},"StackName":{},"TemplateDescription":{},"CreationTime":{"type":"timestamp"},"LastUpdatedTime":{"type":"timestamp"},"DeletionTime":{"type":"timestamp"},"StackStatus":{},"StackStatusReason":{},"ParentId":{},"RootId":{},"DriftInformation":{"type":"structure","required":["StackDriftStatus"],"members":{"StackDriftStatus":{},"LastCheckTimestamp":{"type":"timestamp"}}}}}},"NextToken":{}}}},"ListTypeRegistrations":{"input":{"type":"structure","members":{"Type":{},"TypeName":{},"TypeArn":{},"RegistrationStatusFilter":{},"MaxResults":{"type":"integer"},"NextToken":{}}},"output":{"resultWrapper":"ListTypeRegistrationsResult","type":"structure","members":{"RegistrationTokenList":{"type":"list","member":{}},"NextToken":{}}},"idempotent":true},"ListTypeVersions":{"input":{"type":"structure","members":{"Type":{},"TypeName":{},"Arn":{},"MaxResults":{"type":"integer"},"NextToken":{},"DeprecatedStatus":{}}},"output":{"resultWrapper":"ListTypeVersionsResult","type":"structure","members":{"TypeVersionSummaries":{"type":"list","member":{"type":"structure","members":{"Type":{},"TypeName":{},"VersionId":{},"Arn":{},"TimeCreated":{"type":"timestamp"},"Description":{}}}},"NextToken":{}}},"idempotent":true},"ListTypes":{"input":{"type":"structure","members":{"Visibility":{},"ProvisioningType":{},"DeprecatedStatus":{},"MaxResults":{"type":"integer"},"NextToken":{}}},"output":{"resultWrapper":"ListTypesResult","type":"structure","members":{"TypeSummaries":{"type":"list","member":{"type":"structure","members":{"Type":{},"TypeName":{},"DefaultVersionId":{},"TypeArn":{},"LastUpdated":{"type":"timestamp"},"Description":{}}}},"NextToken":{}}},"idempotent":true},"RecordHandlerProgress":{"input":{"type":"structure","required":["BearerToken","OperationStatus"],"members":{"BearerToken":{},"OperationStatus":{},"CurrentOperationStatus":{},"StatusMessage":{},"ErrorCode":{},"ResourceModel":{},"ClientRequestToken":{}}},"output":{"resultWrapper":"RecordHandlerProgressResult","type":"structure","members":{}},"idempotent":true},"RegisterType":{"input":{"type":"structure","required":["TypeName","SchemaHandlerPackage"],"members":{"Type":{},"TypeName":{},"SchemaHandlerPackage":{},"LoggingConfig":{"shape":"S5v"},"ExecutionRoleArn":{},"ClientRequestToken":{}}},"output":{"resultWrapper":"RegisterTypeResult","type":"structure","members":{"RegistrationToken":{}}},"idempotent":true},"SetStackPolicy":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"StackPolicyBody":{},"StackPolicyURL":{}}}},"SetTypeDefaultVersion":{"input":{"type":"structure","members":{"Arn":{},"Type":{},"TypeName":{},"VersionId":{}}},"output":{"resultWrapper":"SetTypeDefaultVersionResult","type":"structure","members":{}},"idempotent":true},"SignalResource":{"input":{"type":"structure","required":["StackName","LogicalResourceId","UniqueId","Status"],"members":{"StackName":{},"LogicalResourceId":{},"UniqueId":{},"Status":{}}}},"StopStackSetOperation":{"input":{"type":"structure","required":["StackSetName","OperationId"],"members":{"StackSetName":{},"OperationId":{}}},"output":{"resultWrapper":"StopStackSetOperationResult","type":"structure","members":{}}},"UpdateStack":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"TemplateBody":{},"TemplateURL":{},"UsePreviousTemplate":{"type":"boolean"},"StackPolicyDuringUpdateBody":{},"StackPolicyDuringUpdateURL":{},"Parameters":{"shape":"Se"},"Capabilities":{"shape":"Sj"},"ResourceTypes":{"shape":"Sl"},"RoleARN":{},"RollbackConfiguration":{"shape":"Sn"},"StackPolicyBody":{},"StackPolicyURL":{},"NotificationARNs":{"shape":"St"},"Tags":{"shape":"Sv"},"ClientRequestToken":{}}},"output":{"resultWrapper":"UpdateStackResult","type":"structure","members":{"StackId":{}}}},"UpdateStackInstances":{"input":{"type":"structure","required":["StackSetName","Regions"],"members":{"StackSetName":{},"Accounts":{"shape":"S1m"},"DeploymentTargets":{"shape":"S1o"},"Regions":{"shape":"S1r"},"ParameterOverrides":{"shape":"Se"},"OperationPreferences":{"shape":"S1t"},"OperationId":{"idempotencyToken":true}}},"output":{"resultWrapper":"UpdateStackInstancesResult","type":"structure","members":{"OperationId":{}}}},"UpdateStackSet":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{},"Description":{},"TemplateBody":{},"TemplateURL":{},"UsePreviousTemplate":{"type":"boolean"},"Parameters":{"shape":"Se"},"Capabilities":{"shape":"Sj"},"Tags":{"shape":"Sv"},"OperationPreferences":{"shape":"S1t"},"AdministrationRoleARN":{},"ExecutionRoleName":{},"DeploymentTargets":{"shape":"S1o"},"PermissionModel":{},"AutoDeployment":{"shape":"S22"},"OperationId":{"idempotencyToken":true},"Accounts":{"shape":"S1m"},"Regions":{"shape":"S1r"}}},"output":{"resultWrapper":"UpdateStackSetResult","type":"structure","members":{"OperationId":{}}}},"UpdateTerminationProtection":{"input":{"type":"structure","required":["EnableTerminationProtection","StackName"],"members":{"EnableTerminationProtection":{"type":"boolean"},"StackName":{}}},"output":{"resultWrapper":"UpdateTerminationProtectionResult","type":"structure","members":{"StackId":{}}}},"ValidateTemplate":{"input":{"type":"structure","members":{"TemplateBody":{},"TemplateURL":{}}},"output":{"resultWrapper":"ValidateTemplateResult","type":"structure","members":{"Parameters":{"type":"list","member":{"type":"structure","members":{"ParameterKey":{},"DefaultValue":{},"NoEcho":{"type":"boolean"},"Description":{}}}},"Description":{},"Capabilities":{"shape":"Sj"},"CapabilitiesReason":{},"DeclaredTransforms":{"shape":"S6y"}}}}},"shapes":{"Se":{"type":"list","member":{"type":"structure","members":{"ParameterKey":{},"ParameterValue":{},"UsePreviousValue":{"type":"boolean"},"ResolvedValue":{}}}},"Sj":{"type":"list","member":{}},"Sl":{"type":"list","member":{}},"Sn":{"type":"structure","members":{"RollbackTriggers":{"type":"list","member":{"type":"structure","required":["Arn","Type"],"members":{"Arn":{},"Type":{}}}},"MonitoringTimeInMinutes":{"type":"integer"}}},"St":{"type":"list","member":{}},"Sv":{"type":"list","member":{"type":"structure","required":["Key","Value"],"members":{"Key":{},"Value":{}}}},"S1m":{"type":"list","member":{}},"S1o":{"type":"structure","members":{"Accounts":{"shape":"S1m"},"OrganizationalUnitIds":{"shape":"S1p"}}},"S1p":{"type":"list","member":{}},"S1r":{"type":"list","member":{}},"S1t":{"type":"structure","members":{"RegionOrder":{"shape":"S1r"},"FailureToleranceCount":{"type":"integer"},"FailureTolerancePercentage":{"type":"integer"},"MaxConcurrentCount":{"type":"integer"},"MaxConcurrentPercentage":{"type":"integer"}}},"S22":{"type":"structure","members":{"Enabled":{"type":"boolean"},"RetainStacksOnAccountRemoval":{"type":"boolean"}}},"S46":{"type":"structure","required":["StackResourceDriftStatus"],"members":{"StackResourceDriftStatus":{},"LastCheckTimestamp":{"type":"timestamp"}}},"S4d":{"type":"structure","required":["StackId","LogicalResourceId","ResourceType","StackResourceDriftStatus","Timestamp"],"members":{"StackId":{},"LogicalResourceId":{},"PhysicalResourceId":{},"PhysicalResourceIdContext":{"type":"list","member":{"type":"structure","required":["Key","Value"],"members":{"Key":{},"Value":{}}}},"ResourceType":{},"ExpectedProperties":{},"ActualProperties":{},"PropertyDifferences":{"type":"list","member":{"type":"structure","required":["PropertyPath","ExpectedValue","ActualValue","DifferenceType"],"members":{"PropertyPath":{},"ExpectedValue":{},"ActualValue":{},"DifferenceType":{}}}},"StackResourceDriftStatus":{},"Timestamp":{"type":"timestamp"}}},"S4x":{"type":"structure","members":{"DriftStatus":{},"DriftDetectionStatus":{},"LastDriftCheckTimestamp":{"type":"timestamp"},"TotalStackInstancesCount":{"type":"integer"},"DriftedStackInstancesCount":{"type":"integer"},"InSyncStackInstancesCount":{"type":"integer"},"InProgressStackInstancesCount":{"type":"integer"},"FailedStackInstancesCount":{"type":"integer"}}},"S5v":{"type":"structure","required":["LogRoleArn","LogGroupName"],"members":{"LogRoleArn":{},"LogGroupName":{}}},"S65":{"type":"list","member":{}},"S6y":{"type":"list","member":{}}}};
+module.exports = {"version":"2.0","metadata":{"apiVersion":"2010-05-15","endpointPrefix":"cloudformation","protocol":"query","serviceFullName":"AWS CloudFormation","serviceId":"CloudFormation","signatureVersion":"v4","uid":"cloudformation-2010-05-15","xmlNamespace":"http://cloudformation.amazonaws.com/doc/2010-05-15/"},"operations":{"CancelUpdateStack":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"ClientRequestToken":{}}}},"ContinueUpdateRollback":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"RoleARN":{},"ResourcesToSkip":{"type":"list","member":{}},"ClientRequestToken":{}}},"output":{"resultWrapper":"ContinueUpdateRollbackResult","type":"structure","members":{}}},"CreateChangeSet":{"input":{"type":"structure","required":["StackName","ChangeSetName"],"members":{"StackName":{},"TemplateBody":{},"TemplateURL":{},"UsePreviousTemplate":{"type":"boolean"},"Parameters":{"shape":"Se"},"Capabilities":{"shape":"Sj"},"ResourceTypes":{"shape":"Sl"},"RoleARN":{},"RollbackConfiguration":{"shape":"Sn"},"NotificationARNs":{"shape":"St"},"Tags":{"shape":"Sv"},"ChangeSetName":{},"ClientToken":{},"Description":{},"ChangeSetType":{},"ResourcesToImport":{"type":"list","member":{"type":"structure","required":["ResourceType","LogicalResourceId","ResourceIdentifier"],"members":{"ResourceType":{},"LogicalResourceId":{},"ResourceIdentifier":{"type":"map","key":{},"value":{}}}}}}},"output":{"resultWrapper":"CreateChangeSetResult","type":"structure","members":{"Id":{},"StackId":{}}}},"CreateStack":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"TemplateBody":{},"TemplateURL":{},"Parameters":{"shape":"Se"},"DisableRollback":{"type":"boolean"},"RollbackConfiguration":{"shape":"Sn"},"TimeoutInMinutes":{"type":"integer"},"NotificationARNs":{"shape":"St"},"Capabilities":{"shape":"Sj"},"ResourceTypes":{"shape":"Sl"},"RoleARN":{},"OnFailure":{},"StackPolicyBody":{},"StackPolicyURL":{},"Tags":{"shape":"Sv"},"ClientRequestToken":{},"EnableTerminationProtection":{"type":"boolean"}}},"output":{"resultWrapper":"CreateStackResult","type":"structure","members":{"StackId":{}}}},"CreateStackInstances":{"input":{"type":"structure","required":["StackSetName","Regions"],"members":{"StackSetName":{},"Accounts":{"shape":"S1m"},"DeploymentTargets":{"shape":"S1o"},"Regions":{"shape":"S1r"},"ParameterOverrides":{"shape":"Se"},"OperationPreferences":{"shape":"S1t"},"OperationId":{"idempotencyToken":true}}},"output":{"resultWrapper":"CreateStackInstancesResult","type":"structure","members":{"OperationId":{}}}},"CreateStackSet":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{},"Description":{},"TemplateBody":{},"TemplateURL":{},"Parameters":{"shape":"Se"},"Capabilities":{"shape":"Sj"},"Tags":{"shape":"Sv"},"AdministrationRoleARN":{},"ExecutionRoleName":{},"PermissionModel":{},"AutoDeployment":{"shape":"S22"},"ClientRequestToken":{"idempotencyToken":true}}},"output":{"resultWrapper":"CreateStackSetResult","type":"structure","members":{"StackSetId":{}}}},"DeleteChangeSet":{"input":{"type":"structure","required":["ChangeSetName"],"members":{"ChangeSetName":{},"StackName":{}}},"output":{"resultWrapper":"DeleteChangeSetResult","type":"structure","members":{}}},"DeleteStack":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"RetainResources":{"type":"list","member":{}},"RoleARN":{},"ClientRequestToken":{}}}},"DeleteStackInstances":{"input":{"type":"structure","required":["StackSetName","Regions","RetainStacks"],"members":{"StackSetName":{},"Accounts":{"shape":"S1m"},"DeploymentTargets":{"shape":"S1o"},"Regions":{"shape":"S1r"},"OperationPreferences":{"shape":"S1t"},"RetainStacks":{"type":"boolean"},"OperationId":{"idempotencyToken":true}}},"output":{"resultWrapper":"DeleteStackInstancesResult","type":"structure","members":{"OperationId":{}}}},"DeleteStackSet":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{}}},"output":{"resultWrapper":"DeleteStackSetResult","type":"structure","members":{}}},"DeregisterType":{"input":{"type":"structure","members":{"Arn":{},"Type":{},"TypeName":{},"VersionId":{}}},"output":{"resultWrapper":"DeregisterTypeResult","type":"structure","members":{}},"idempotent":true},"DescribeAccountLimits":{"input":{"type":"structure","members":{"NextToken":{}}},"output":{"resultWrapper":"DescribeAccountLimitsResult","type":"structure","members":{"AccountLimits":{"type":"list","member":{"type":"structure","members":{"Name":{},"Value":{"type":"integer"}}}},"NextToken":{}}}},"DescribeChangeSet":{"input":{"type":"structure","required":["ChangeSetName"],"members":{"ChangeSetName":{},"StackName":{},"NextToken":{}}},"output":{"resultWrapper":"DescribeChangeSetResult","type":"structure","members":{"ChangeSetName":{},"ChangeSetId":{},"StackId":{},"StackName":{},"Description":{},"Parameters":{"shape":"Se"},"CreationTime":{"type":"timestamp"},"ExecutionStatus":{},"Status":{},"StatusReason":{},"NotificationARNs":{"shape":"St"},"RollbackConfiguration":{"shape":"Sn"},"Capabilities":{"shape":"Sj"},"Tags":{"shape":"Sv"},"Changes":{"type":"list","member":{"type":"structure","members":{"Type":{},"ResourceChange":{"type":"structure","members":{"Action":{},"LogicalResourceId":{},"PhysicalResourceId":{},"ResourceType":{},"Replacement":{},"Scope":{"type":"list","member":{}},"Details":{"type":"list","member":{"type":"structure","members":{"Target":{"type":"structure","members":{"Attribute":{},"Name":{},"RequiresRecreation":{}}},"Evaluation":{},"ChangeSource":{},"CausingEntity":{}}}}}}}}},"NextToken":{}}}},"DescribeStackDriftDetectionStatus":{"input":{"type":"structure","required":["StackDriftDetectionId"],"members":{"StackDriftDetectionId":{}}},"output":{"resultWrapper":"DescribeStackDriftDetectionStatusResult","type":"structure","required":["StackId","StackDriftDetectionId","DetectionStatus","Timestamp"],"members":{"StackId":{},"StackDriftDetectionId":{},"StackDriftStatus":{},"DetectionStatus":{},"DetectionStatusReason":{},"DriftedStackResourceCount":{"type":"integer"},"Timestamp":{"type":"timestamp"}}}},"DescribeStackEvents":{"input":{"type":"structure","members":{"StackName":{},"NextToken":{}}},"output":{"resultWrapper":"DescribeStackEventsResult","type":"structure","members":{"StackEvents":{"type":"list","member":{"type":"structure","required":["StackId","EventId","StackName","Timestamp"],"members":{"StackId":{},"EventId":{},"StackName":{},"LogicalResourceId":{},"PhysicalResourceId":{},"ResourceType":{},"Timestamp":{"type":"timestamp"},"ResourceStatus":{},"ResourceStatusReason":{},"ResourceProperties":{},"ClientRequestToken":{}}}},"NextToken":{}}}},"DescribeStackInstance":{"input":{"type":"structure","required":["StackSetName","StackInstanceAccount","StackInstanceRegion"],"members":{"StackSetName":{},"StackInstanceAccount":{},"StackInstanceRegion":{}}},"output":{"resultWrapper":"DescribeStackInstanceResult","type":"structure","members":{"StackInstance":{"type":"structure","members":{"StackSetId":{},"Region":{},"Account":{},"StackId":{},"ParameterOverrides":{"shape":"Se"},"Status":{},"StackInstanceStatus":{"shape":"S41"},"StatusReason":{},"OrganizationalUnitId":{},"DriftStatus":{},"LastDriftCheckTimestamp":{"type":"timestamp"}}}}}},"DescribeStackResource":{"input":{"type":"structure","required":["StackName","LogicalResourceId"],"members":{"StackName":{},"LogicalResourceId":{}}},"output":{"resultWrapper":"DescribeStackResourceResult","type":"structure","members":{"StackResourceDetail":{"type":"structure","required":["LogicalResourceId","ResourceType","LastUpdatedTimestamp","ResourceStatus"],"members":{"StackName":{},"StackId":{},"LogicalResourceId":{},"PhysicalResourceId":{},"ResourceType":{},"LastUpdatedTimestamp":{"type":"timestamp"},"ResourceStatus":{},"ResourceStatusReason":{},"Description":{},"Metadata":{},"DriftInformation":{"shape":"S48"}}}}}},"DescribeStackResourceDrifts":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"StackResourceDriftStatusFilters":{"type":"list","member":{}},"NextToken":{},"MaxResults":{"type":"integer"}}},"output":{"resultWrapper":"DescribeStackResourceDriftsResult","type":"structure","required":["StackResourceDrifts"],"members":{"StackResourceDrifts":{"type":"list","member":{"shape":"S4f"}},"NextToken":{}}}},"DescribeStackResources":{"input":{"type":"structure","members":{"StackName":{},"LogicalResourceId":{},"PhysicalResourceId":{}}},"output":{"resultWrapper":"DescribeStackResourcesResult","type":"structure","members":{"StackResources":{"type":"list","member":{"type":"structure","required":["LogicalResourceId","ResourceType","Timestamp","ResourceStatus"],"members":{"StackName":{},"StackId":{},"LogicalResourceId":{},"PhysicalResourceId":{},"ResourceType":{},"Timestamp":{"type":"timestamp"},"ResourceStatus":{},"ResourceStatusReason":{},"Description":{},"DriftInformation":{"shape":"S48"}}}}}}},"DescribeStackSet":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{}}},"output":{"resultWrapper":"DescribeStackSetResult","type":"structure","members":{"StackSet":{"type":"structure","members":{"StackSetName":{},"StackSetId":{},"Description":{},"Status":{},"TemplateBody":{},"Parameters":{"shape":"Se"},"Capabilities":{"shape":"Sj"},"Tags":{"shape":"Sv"},"StackSetARN":{},"AdministrationRoleARN":{},"ExecutionRoleName":{},"StackSetDriftDetectionDetails":{"shape":"S4z"},"AutoDeployment":{"shape":"S22"},"PermissionModel":{},"OrganizationalUnitIds":{"shape":"S1p"}}}}}},"DescribeStackSetOperation":{"input":{"type":"structure","required":["StackSetName","OperationId"],"members":{"StackSetName":{},"OperationId":{}}},"output":{"resultWrapper":"DescribeStackSetOperationResult","type":"structure","members":{"StackSetOperation":{"type":"structure","members":{"OperationId":{},"StackSetId":{},"Action":{},"Status":{},"OperationPreferences":{"shape":"S1t"},"RetainStacks":{"type":"boolean"},"AdministrationRoleARN":{},"ExecutionRoleName":{},"CreationTimestamp":{"type":"timestamp"},"EndTimestamp":{"type":"timestamp"},"DeploymentTargets":{"shape":"S1o"},"StackSetDriftDetectionDetails":{"shape":"S4z"}}}}}},"DescribeStacks":{"input":{"type":"structure","members":{"StackName":{},"NextToken":{}}},"output":{"resultWrapper":"DescribeStacksResult","type":"structure","members":{"Stacks":{"type":"list","member":{"type":"structure","required":["StackName","CreationTime","StackStatus"],"members":{"StackId":{},"StackName":{},"ChangeSetId":{},"Description":{},"Parameters":{"shape":"Se"},"CreationTime":{"type":"timestamp"},"DeletionTime":{"type":"timestamp"},"LastUpdatedTime":{"type":"timestamp"},"RollbackConfiguration":{"shape":"Sn"},"StackStatus":{},"StackStatusReason":{},"DisableRollback":{"type":"boolean"},"NotificationARNs":{"shape":"St"},"TimeoutInMinutes":{"type":"integer"},"Capabilities":{"shape":"Sj"},"Outputs":{"type":"list","member":{"type":"structure","members":{"OutputKey":{},"OutputValue":{},"Description":{},"ExportName":{}}}},"RoleARN":{},"Tags":{"shape":"Sv"},"EnableTerminationProtection":{"type":"boolean"},"ParentId":{},"RootId":{},"DriftInformation":{"type":"structure","required":["StackDriftStatus"],"members":{"StackDriftStatus":{},"LastCheckTimestamp":{"type":"timestamp"}}}}}},"NextToken":{}}}},"DescribeType":{"input":{"type":"structure","members":{"Type":{},"TypeName":{},"Arn":{},"VersionId":{}}},"output":{"resultWrapper":"DescribeTypeResult","type":"structure","members":{"Arn":{},"Type":{},"TypeName":{},"DefaultVersionId":{},"IsDefaultVersion":{"type":"boolean"},"Description":{},"Schema":{},"ProvisioningType":{},"DeprecatedStatus":{},"LoggingConfig":{"shape":"S5y"},"ExecutionRoleArn":{},"Visibility":{},"SourceUrl":{},"DocumentationUrl":{},"LastUpdated":{"type":"timestamp"},"TimeCreated":{"type":"timestamp"}}},"idempotent":true},"DescribeTypeRegistration":{"input":{"type":"structure","required":["RegistrationToken"],"members":{"RegistrationToken":{}}},"output":{"resultWrapper":"DescribeTypeRegistrationResult","type":"structure","members":{"ProgressStatus":{},"Description":{},"TypeArn":{},"TypeVersionArn":{}}},"idempotent":true},"DetectStackDrift":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"LogicalResourceIds":{"shape":"S68"}}},"output":{"resultWrapper":"DetectStackDriftResult","type":"structure","required":["StackDriftDetectionId"],"members":{"StackDriftDetectionId":{}}}},"DetectStackResourceDrift":{"input":{"type":"structure","required":["StackName","LogicalResourceId"],"members":{"StackName":{},"LogicalResourceId":{}}},"output":{"resultWrapper":"DetectStackResourceDriftResult","type":"structure","required":["StackResourceDrift"],"members":{"StackResourceDrift":{"shape":"S4f"}}}},"DetectStackSetDrift":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{},"OperationPreferences":{"shape":"S1t"},"OperationId":{"idempotencyToken":true}}},"output":{"resultWrapper":"DetectStackSetDriftResult","type":"structure","members":{"OperationId":{}}}},"EstimateTemplateCost":{"input":{"type":"structure","members":{"TemplateBody":{},"TemplateURL":{},"Parameters":{"shape":"Se"}}},"output":{"resultWrapper":"EstimateTemplateCostResult","type":"structure","members":{"Url":{}}}},"ExecuteChangeSet":{"input":{"type":"structure","required":["ChangeSetName"],"members":{"ChangeSetName":{},"StackName":{},"ClientRequestToken":{}}},"output":{"resultWrapper":"ExecuteChangeSetResult","type":"structure","members":{}}},"GetStackPolicy":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{}}},"output":{"resultWrapper":"GetStackPolicyResult","type":"structure","members":{"StackPolicyBody":{}}}},"GetTemplate":{"input":{"type":"structure","members":{"StackName":{},"ChangeSetName":{},"TemplateStage":{}}},"output":{"resultWrapper":"GetTemplateResult","type":"structure","members":{"TemplateBody":{},"StagesAvailable":{"type":"list","member":{}}}}},"GetTemplateSummary":{"input":{"type":"structure","members":{"TemplateBody":{},"TemplateURL":{},"StackName":{},"StackSetName":{}}},"output":{"resultWrapper":"GetTemplateSummaryResult","type":"structure","members":{"Parameters":{"type":"list","member":{"type":"structure","members":{"ParameterKey":{},"DefaultValue":{},"ParameterType":{},"NoEcho":{"type":"boolean"},"Description":{},"ParameterConstraints":{"type":"structure","members":{"AllowedValues":{"type":"list","member":{}}}}}}},"Description":{},"Capabilities":{"shape":"Sj"},"CapabilitiesReason":{},"ResourceTypes":{"shape":"Sl"},"Version":{},"Metadata":{},"DeclaredTransforms":{"shape":"S71"},"ResourceIdentifierSummaries":{"type":"list","member":{"type":"structure","members":{"ResourceType":{},"LogicalResourceIds":{"shape":"S68"},"ResourceIdentifiers":{"type":"list","member":{}}}}}}}},"ListChangeSets":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"NextToken":{}}},"output":{"resultWrapper":"ListChangeSetsResult","type":"structure","members":{"Summaries":{"type":"list","member":{"type":"structure","members":{"StackId":{},"StackName":{},"ChangeSetId":{},"ChangeSetName":{},"ExecutionStatus":{},"Status":{},"StatusReason":{},"CreationTime":{"type":"timestamp"},"Description":{}}}},"NextToken":{}}}},"ListExports":{"input":{"type":"structure","members":{"NextToken":{}}},"output":{"resultWrapper":"ListExportsResult","type":"structure","members":{"Exports":{"type":"list","member":{"type":"structure","members":{"ExportingStackId":{},"Name":{},"Value":{}}}},"NextToken":{}}}},"ListImports":{"input":{"type":"structure","required":["ExportName"],"members":{"ExportName":{},"NextToken":{}}},"output":{"resultWrapper":"ListImportsResult","type":"structure","members":{"Imports":{"type":"list","member":{}},"NextToken":{}}}},"ListStackInstances":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{},"NextToken":{},"MaxResults":{"type":"integer"},"Filters":{"type":"list","member":{"type":"structure","members":{"Name":{},"Values":{}}}},"StackInstanceAccount":{},"StackInstanceRegion":{}}},"output":{"resultWrapper":"ListStackInstancesResult","type":"structure","members":{"Summaries":{"type":"list","member":{"type":"structure","members":{"StackSetId":{},"Region":{},"Account":{},"StackId":{},"Status":{},"StatusReason":{},"StackInstanceStatus":{"shape":"S41"},"OrganizationalUnitId":{},"DriftStatus":{},"LastDriftCheckTimestamp":{"type":"timestamp"}}}},"NextToken":{}}}},"ListStackResources":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"NextToken":{}}},"output":{"resultWrapper":"ListStackResourcesResult","type":"structure","members":{"StackResourceSummaries":{"type":"list","member":{"type":"structure","required":["LogicalResourceId","ResourceType","LastUpdatedTimestamp","ResourceStatus"],"members":{"LogicalResourceId":{},"PhysicalResourceId":{},"ResourceType":{},"LastUpdatedTimestamp":{"type":"timestamp"},"ResourceStatus":{},"ResourceStatusReason":{},"DriftInformation":{"type":"structure","required":["StackResourceDriftStatus"],"members":{"StackResourceDriftStatus":{},"LastCheckTimestamp":{"type":"timestamp"}}}}}},"NextToken":{}}}},"ListStackSetOperationResults":{"input":{"type":"structure","required":["StackSetName","OperationId"],"members":{"StackSetName":{},"OperationId":{},"NextToken":{},"MaxResults":{"type":"integer"}}},"output":{"resultWrapper":"ListStackSetOperationResultsResult","type":"structure","members":{"Summaries":{"type":"list","member":{"type":"structure","members":{"Account":{},"Region":{},"Status":{},"StatusReason":{},"AccountGateResult":{"type":"structure","members":{"Status":{},"StatusReason":{}}},"OrganizationalUnitId":{}}}},"NextToken":{}}}},"ListStackSetOperations":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{},"NextToken":{},"MaxResults":{"type":"integer"}}},"output":{"resultWrapper":"ListStackSetOperationsResult","type":"structure","members":{"Summaries":{"type":"list","member":{"type":"structure","members":{"OperationId":{},"Action":{},"Status":{},"CreationTimestamp":{"type":"timestamp"},"EndTimestamp":{"type":"timestamp"}}}},"NextToken":{}}}},"ListStackSets":{"input":{"type":"structure","members":{"NextToken":{},"MaxResults":{"type":"integer"},"Status":{}}},"output":{"resultWrapper":"ListStackSetsResult","type":"structure","members":{"Summaries":{"type":"list","member":{"type":"structure","members":{"StackSetName":{},"StackSetId":{},"Description":{},"Status":{},"AutoDeployment":{"shape":"S22"},"PermissionModel":{},"DriftStatus":{},"LastDriftCheckTimestamp":{"type":"timestamp"}}}},"NextToken":{}}}},"ListStacks":{"input":{"type":"structure","members":{"NextToken":{},"StackStatusFilter":{"type":"list","member":{}}}},"output":{"resultWrapper":"ListStacksResult","type":"structure","members":{"StackSummaries":{"type":"list","member":{"type":"structure","required":["StackName","CreationTime","StackStatus"],"members":{"StackId":{},"StackName":{},"TemplateDescription":{},"CreationTime":{"type":"timestamp"},"LastUpdatedTime":{"type":"timestamp"},"DeletionTime":{"type":"timestamp"},"StackStatus":{},"StackStatusReason":{},"ParentId":{},"RootId":{},"DriftInformation":{"type":"structure","required":["StackDriftStatus"],"members":{"StackDriftStatus":{},"LastCheckTimestamp":{"type":"timestamp"}}}}}},"NextToken":{}}}},"ListTypeRegistrations":{"input":{"type":"structure","members":{"Type":{},"TypeName":{},"TypeArn":{},"RegistrationStatusFilter":{},"MaxResults":{"type":"integer"},"NextToken":{}}},"output":{"resultWrapper":"ListTypeRegistrationsResult","type":"structure","members":{"RegistrationTokenList":{"type":"list","member":{}},"NextToken":{}}},"idempotent":true},"ListTypeVersions":{"input":{"type":"structure","members":{"Type":{},"TypeName":{},"Arn":{},"MaxResults":{"type":"integer"},"NextToken":{},"DeprecatedStatus":{}}},"output":{"resultWrapper":"ListTypeVersionsResult","type":"structure","members":{"TypeVersionSummaries":{"type":"list","member":{"type":"structure","members":{"Type":{},"TypeName":{},"VersionId":{},"IsDefaultVersion":{"type":"boolean"},"Arn":{},"TimeCreated":{"type":"timestamp"},"Description":{}}}},"NextToken":{}}},"idempotent":true},"ListTypes":{"input":{"type":"structure","members":{"Visibility":{},"ProvisioningType":{},"DeprecatedStatus":{},"MaxResults":{"type":"integer"},"NextToken":{}}},"output":{"resultWrapper":"ListTypesResult","type":"structure","members":{"TypeSummaries":{"type":"list","member":{"type":"structure","members":{"Type":{},"TypeName":{},"DefaultVersionId":{},"TypeArn":{},"LastUpdated":{"type":"timestamp"},"Description":{}}}},"NextToken":{}}},"idempotent":true},"RecordHandlerProgress":{"input":{"type":"structure","required":["BearerToken","OperationStatus"],"members":{"BearerToken":{},"OperationStatus":{},"CurrentOperationStatus":{},"StatusMessage":{},"ErrorCode":{},"ResourceModel":{},"ClientRequestToken":{}}},"output":{"resultWrapper":"RecordHandlerProgressResult","type":"structure","members":{}},"idempotent":true},"RegisterType":{"input":{"type":"structure","required":["TypeName","SchemaHandlerPackage"],"members":{"Type":{},"TypeName":{},"SchemaHandlerPackage":{},"LoggingConfig":{"shape":"S5y"},"ExecutionRoleArn":{},"ClientRequestToken":{}}},"output":{"resultWrapper":"RegisterTypeResult","type":"structure","members":{"RegistrationToken":{}}},"idempotent":true},"SetStackPolicy":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"StackPolicyBody":{},"StackPolicyURL":{}}}},"SetTypeDefaultVersion":{"input":{"type":"structure","members":{"Arn":{},"Type":{},"TypeName":{},"VersionId":{}}},"output":{"resultWrapper":"SetTypeDefaultVersionResult","type":"structure","members":{}},"idempotent":true},"SignalResource":{"input":{"type":"structure","required":["StackName","LogicalResourceId","UniqueId","Status"],"members":{"StackName":{},"LogicalResourceId":{},"UniqueId":{},"Status":{}}}},"StopStackSetOperation":{"input":{"type":"structure","required":["StackSetName","OperationId"],"members":{"StackSetName":{},"OperationId":{}}},"output":{"resultWrapper":"StopStackSetOperationResult","type":"structure","members":{}}},"UpdateStack":{"input":{"type":"structure","required":["StackName"],"members":{"StackName":{},"TemplateBody":{},"TemplateURL":{},"UsePreviousTemplate":{"type":"boolean"},"StackPolicyDuringUpdateBody":{},"StackPolicyDuringUpdateURL":{},"Parameters":{"shape":"Se"},"Capabilities":{"shape":"Sj"},"ResourceTypes":{"shape":"Sl"},"RoleARN":{},"RollbackConfiguration":{"shape":"Sn"},"StackPolicyBody":{},"StackPolicyURL":{},"NotificationARNs":{"shape":"St"},"Tags":{"shape":"Sv"},"ClientRequestToken":{}}},"output":{"resultWrapper":"UpdateStackResult","type":"structure","members":{"StackId":{}}}},"UpdateStackInstances":{"input":{"type":"structure","required":["StackSetName","Regions"],"members":{"StackSetName":{},"Accounts":{"shape":"S1m"},"DeploymentTargets":{"shape":"S1o"},"Regions":{"shape":"S1r"},"ParameterOverrides":{"shape":"Se"},"OperationPreferences":{"shape":"S1t"},"OperationId":{"idempotencyToken":true}}},"output":{"resultWrapper":"UpdateStackInstancesResult","type":"structure","members":{"OperationId":{}}}},"UpdateStackSet":{"input":{"type":"structure","required":["StackSetName"],"members":{"StackSetName":{},"Description":{},"TemplateBody":{},"TemplateURL":{},"UsePreviousTemplate":{"type":"boolean"},"Parameters":{"shape":"Se"},"Capabilities":{"shape":"Sj"},"Tags":{"shape":"Sv"},"OperationPreferences":{"shape":"S1t"},"AdministrationRoleARN":{},"ExecutionRoleName":{},"DeploymentTargets":{"shape":"S1o"},"PermissionModel":{},"AutoDeployment":{"shape":"S22"},"OperationId":{"idempotencyToken":true},"Accounts":{"shape":"S1m"},"Regions":{"shape":"S1r"}}},"output":{"resultWrapper":"UpdateStackSetResult","type":"structure","members":{"OperationId":{}}}},"UpdateTerminationProtection":{"input":{"type":"structure","required":["EnableTerminationProtection","StackName"],"members":{"EnableTerminationProtection":{"type":"boolean"},"StackName":{}}},"output":{"resultWrapper":"UpdateTerminationProtectionResult","type":"structure","members":{"StackId":{}}}},"ValidateTemplate":{"input":{"type":"structure","members":{"TemplateBody":{},"TemplateURL":{}}},"output":{"resultWrapper":"ValidateTemplateResult","type":"structure","members":{"Parameters":{"type":"list","member":{"type":"structure","members":{"ParameterKey":{},"DefaultValue":{},"NoEcho":{"type":"boolean"},"Description":{}}}},"Description":{},"Capabilities":{"shape":"Sj"},"CapabilitiesReason":{},"DeclaredTransforms":{"shape":"S71"}}}}},"shapes":{"Se":{"type":"list","member":{"type":"structure","members":{"ParameterKey":{},"ParameterValue":{},"UsePreviousValue":{"type":"boolean"},"ResolvedValue":{}}}},"Sj":{"type":"list","member":{}},"Sl":{"type":"list","member":{}},"Sn":{"type":"structure","members":{"RollbackTriggers":{"type":"list","member":{"type":"structure","required":["Arn","Type"],"members":{"Arn":{},"Type":{}}}},"MonitoringTimeInMinutes":{"type":"integer"}}},"St":{"type":"list","member":{}},"Sv":{"type":"list","member":{"type":"structure","required":["Key","Value"],"members":{"Key":{},"Value":{}}}},"S1m":{"type":"list","member":{}},"S1o":{"type":"structure","members":{"Accounts":{"shape":"S1m"},"OrganizationalUnitIds":{"shape":"S1p"}}},"S1p":{"type":"list","member":{}},"S1r":{"type":"list","member":{}},"S1t":{"type":"structure","members":{"RegionOrder":{"shape":"S1r"},"FailureToleranceCount":{"type":"integer"},"FailureTolerancePercentage":{"type":"integer"},"MaxConcurrentCount":{"type":"integer"},"MaxConcurrentPercentage":{"type":"integer"}}},"S22":{"type":"structure","members":{"Enabled":{"type":"boolean"},"RetainStacksOnAccountRemoval":{"type":"boolean"}}},"S41":{"type":"structure","members":{"DetailedStatus":{}}},"S48":{"type":"structure","required":["StackResourceDriftStatus"],"members":{"StackResourceDriftStatus":{},"LastCheckTimestamp":{"type":"timestamp"}}},"S4f":{"type":"structure","required":["StackId","LogicalResourceId","ResourceType","StackResourceDriftStatus","Timestamp"],"members":{"StackId":{},"LogicalResourceId":{},"PhysicalResourceId":{},"PhysicalResourceIdContext":{"type":"list","member":{"type":"structure","required":["Key","Value"],"members":{"Key":{},"Value":{}}}},"ResourceType":{},"ExpectedProperties":{},"ActualProperties":{},"PropertyDifferences":{"type":"list","member":{"type":"structure","required":["PropertyPath","ExpectedValue","ActualValue","DifferenceType"],"members":{"PropertyPath":{},"ExpectedValue":{},"ActualValue":{},"DifferenceType":{}}}},"StackResourceDriftStatus":{},"Timestamp":{"type":"timestamp"}}},"S4z":{"type":"structure","members":{"DriftStatus":{},"DriftDetectionStatus":{},"LastDriftCheckTimestamp":{"type":"timestamp"},"TotalStackInstancesCount":{"type":"integer"},"DriftedStackInstancesCount":{"type":"integer"},"InSyncStackInstancesCount":{"type":"integer"},"InProgressStackInstancesCount":{"type":"integer"},"FailedStackInstancesCount":{"type":"integer"}}},"S5y":{"type":"structure","required":["LogRoleArn","LogGroupName"],"members":{"LogRoleArn":{},"LogGroupName":{}}},"S68":{"type":"list","member":{}},"S71":{"type":"list","member":{}}}};
+
+/***/ }),
+
+/***/ 936:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+// For internal use, subject to change.
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+// We use any as a valid input type
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const fs = __importStar(__webpack_require__(747));
+const os = __importStar(__webpack_require__(87));
+const utils_1 = __webpack_require__(589);
+function issueCommand(command, message) {
+    const filePath = process.env[`GITHUB_${command}`];
+    if (!filePath) {
+        throw new Error(`Unable to find environment variable for file command ${command}`);
+    }
+    if (!fs.existsSync(filePath)) {
+        throw new Error(`Missing file at path: ${filePath}`);
+    }
+    fs.appendFileSync(filePath, `${utils_1.toCommandValue(message)}${os.EOL}`, {
+        encoding: 'utf8'
+    });
+}
+exports.issueCommand = issueCommand;
+//# sourceMappingURL=file-command.js.map
 
 /***/ }),
 
