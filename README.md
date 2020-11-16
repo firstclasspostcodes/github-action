@@ -1,15 +1,15 @@
 # GitHub Action
 
-The actions in this repository, help us to deploy with AWS CloudFormation & integrate with our AWS environment, using GitHub actions. 
+The actions defined in this repository, help us to deploy with AWS CloudFormation & integrate with our AWS environment, using GitHub actions.
 
 Included actions help you to:
 
-* Package AWS templates `aws cloudformation package`.
-* Create/Update AWS CloudFormation stacks.
-* Delete AWS CloudFormation stacks.
-* Read stack outputs and output them as step outputs.
-* Read SSM Parameter Store parameters and output them as step outputs.
-* Trigger workflows when certain AWS EventBridge / CloudWatch events are triggered.
+- Package AWS templates `aws cloudformation package`.
+- Create/Update AWS CloudFormation stacks.
+- Delete AWS CloudFormation stacks.
+- Read stack outputs and output them as step outputs.
+- Read SSM Parameter Store parameters and output them as step outputs.
+- Trigger workflows when certain AWS EventBridge / CloudWatch events are triggered.
 
 Below is an example of its usage:
 
@@ -19,8 +19,8 @@ name: Deploy
 on:
   - push
   # Start this workflow when a repository dispatch event is received
-  # that matches this type. 
-  # 
+  # that matches this type.
+  #
   # Configuring this trigger is demonstrated below, in the `clouformation/triggers` action.
   - repository_dispatch:
       types: [my-parameter-trigger]
@@ -40,18 +40,18 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ matrix.region }}
-      
+
     steps:
       # Using the CloudFormation triggers action enables you to start your workflow,
       # when certain AWS EventBridge or AWS CloudWatch events are triggered inside
       # your AWS account.
-      # 
+      #
       # This action works by deploying an AWS CloudFormation stack that matches the
       # repository name, suffixed with the name property you provide. This allows
       # you to deploy multiple triggers that start different workflows, if necessary.
       # The CloudFormation stack deploys a pre-configured AWS Lambda function that
       # is triggered from the configured EventBridge/CloudWatch event pattern.
-      # 
+      #
       # Note: For this action to work, you will need to configure a repo scoped
       # GitHub personal access token and set it as a secret. In the example below,
       # we've used "AWS_TRIGGER_TOKEN", which is a GitHub personal access token.
@@ -68,7 +68,7 @@ jobs:
           event-type: my-parameter-trigger
           # Required: Configure the event matching pattern that will be used to
           # trigger repository event dispatches.
-          # 
+          #
           # See: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/CloudWatchEventsandEventPatterns.html
           event-pattern: |
             {
@@ -81,9 +81,9 @@ jobs:
 
       # This action uses the command-line action `aws clouformation package` and uploads
       # the output template file to an workflow artifact.
-      # 
+      #
       # For more information about what this action does, see:
-      # 
+      #
       # https://docs.aws.amazon.com/cli/latest/reference/cloudformation/package.html
       - name: 'cloudforation/package-template'
         uses: firstclasspostcodes/github-action/cloudformation/package-template@v2.3.6
@@ -91,7 +91,7 @@ jobs:
           # Required: Pass a relative filepath to the template, from the root of the repository.
           template-file: ./examples/template.yml
           # Required: The name of an AWS S3 Bucket that packaged resources will be
-          # uploaded to. 
+          # uploaded to.
           s3-bucket: packaged-resources-s3-bucket-name
           # Optional: The S3 key prefix that resources will be uploaded under.
           s3-prefix: s3-key-prefix
@@ -102,8 +102,8 @@ jobs:
           artifact-name: example-artifact-name
 
       # Use this action to deploy a CloudFormation template directly from the repository
-      # or from a packaged artifact name. 
-      # 
+      # or from a packaged artifact name.
+      #
       # Stacks are deployed using `create-change-set` and `execute-change-set`, stacks
       # will either be created, or updated if they already exist. If no updates are to
       # be performed, this action will exit successfully and has no effect.
@@ -111,9 +111,9 @@ jobs:
         uses: firstclasspostcodes/github-action/cloudformation/deploy@v2.3.6
         with:
           # Optional: Pass through a valid JSON object for required parameters.
-          # 
+          #
           # Parameters can either be a string, or an object (as demonstrated below).
-          # 
+          #
           # If you need to pass an object, see the "Parameters" definition here;
           # https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/CloudFormation.html#createChangeSet-property
           parameters: |
@@ -124,7 +124,7 @@ jobs:
               }
             }
           # Optional: Pass through a valid JSON object of tags.
-          # 
+          #
           # Tags added to CloudFormation stacks are also added to supported resources
           # that are deployed by the stack. Passing through the ref and sha helps you to
           # diagnose issues with releases.
@@ -146,16 +146,16 @@ jobs:
 
       # The `cloudformation/run` action packages your CloudFormation template, deploys it and
       # reads the stack outputs as step outputs, all in one handy action.
-      # 
+      #
       # The packaged template is also uploaded as a workflow artifact.
       - name: 'cloudformation/run'
         id: stack
         uses: firstclasspostcodes/github-action/cloudformation/run@v2.3.6
         with:
           # Optional: Pass through a valid JSON object for required parameters.
-          # 
+          #
           # Parameters can either be a string, or an object (as demonstrated below).
-          # 
+          #
           # If you need to pass an object, see the "Parameters" definition here;
           # https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/CloudFormation.html#createChangeSet-property
           parameters: |
@@ -166,7 +166,7 @@ jobs:
               }
             }
           # Optional: Pass through a valid JSON object of tags.
-          # 
+          #
           # Tags added to CloudFormation stacks are also added to supported resources
           # that are deployed by the stack. Passing through the ref and sha helps you to
           # diagnose issues with releases.
@@ -180,7 +180,7 @@ jobs:
           # Required: Pass a relative filepath to the template, from the root of the repository.
           template-file: ./examples/template.yml
           # Required: The name of an AWS S3 Bucket that packaged resources will be
-          # uploaded to. 
+          # uploaded to.
           s3-bucket: packaged-resources-s3-bucket-name
           # Optional: The S3 key prefix that resources will be uploaded under.
           s3-prefix: s3-key-prefix
@@ -199,13 +199,13 @@ jobs:
           stack-name: example-test-stack
 
       # This action allows you to read the values of parameters that are stored in AWS SSM Parameter Store.
-      # 
+      #
       # This is useful for build processes that may require parameter values, etc.
-      # 
+      #
       # You provide a parameter name prefix and all the parameters under this prefix are read
-      # and their values included as step outputs. The names of parameters are snake-cased 
+      # and their values included as step outputs. The names of parameters are snake-cased
       # so that they're compatible with GitHub action syntax.
-      # 
+      #
       # For example, given a parameter named: /Master/Production/DatabaseName, this would
       # be output as "master-production-database-name".
       - name: 'cloudformation/read-parameters'
@@ -213,7 +213,7 @@ jobs:
         uses: firstclasspostcodes/github-action/cloudformation/read-parameters@v2.3.6
         with:
           # Required: The SSM Parameter Store path prefix
-          path: "/Master/Production"
+          path: '/Master/Production'
 
       # This example follows on from the step above, describing how you can use these
       # parameters in subsequent job steps:
@@ -223,7 +223,7 @@ jobs:
           PARAMETER_VALUE: ${{ steps.parameters.outputs.master-production-database-name }}
 
       # Delete a CloudFormation stack. If the stack does not exist, then this action
-      # has no effect. 
+      # has no effect.
       - name: 'cloudformation/delete'
         uses: firstclasspostcodes/github-action/cloudformation/delete@v2.3.6
         with:
