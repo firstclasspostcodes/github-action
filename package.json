@@ -46,7 +46,7 @@
     "@actions/exec": "^1.0.4",
     "@actions/github": "^4.0.0",
     "@actions/io": "^1.0.2",
-    "aws-sdk": "^2.824.0",
+    "aws-sdk": "^2.828.0",
     "minimist": "^1.2.5"
   },
   "lint-staged": {
